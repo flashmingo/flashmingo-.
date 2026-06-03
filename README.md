@@ -1,2 +1,1 @@
-# flashmingo
-:) 
+# FlashMingo is a secure, school-focused flashcard and study platform built as a compliant alternative to consumer study tools like Quizlet. Designed for K–12 deployment, it prioritizes student privacy, data minimization, and district-level control while providing a fast, responsive interface for creating and studying flashcards across devices. FlashMingo supports cloud-based authentication, scalable multi-tenant architecture, and seamless classroom integration, making it suitable for schools that require strict adherence to data and usage policies while still offering modern digital learning tools.
