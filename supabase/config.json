@@ -1,0 +1,52 @@
+{
+  "project_id": "your-project-id",
+  "api": {
+    "port": 54321,
+    "schemas": ["public", "graphql_public"],
+    "default_schema": "public",
+    "max_rows": 1000
+  },
+  "db": {
+    "port": 54322,
+    "major_version": 15
+  },
+  "realtime": {
+    "enabled": true,
+    "max_bytes_per_second": 1000000,
+    "max_channels_per_client": 128,
+    "max_joins_per_second": 500
+  },
+  "auth": {
+    "enabled": true,
+    "site_url": "http://localhost:3000",
+    "additional_redirect_urls": [
+      "http://localhost:3000/**",
+      "https://your-domain.com/**"
+    ],
+    "jwt": {
+      "exp": 3600,
+      "aud": "authenticated",
+      "secret": "your-jwt-secret"
+    },
+    "external": {}
+  },
+  "storage": {
+    "file_size_limit": 52428800,
+    "s3": {
+      "protocol": "http",
+      "host": "storage-emulator",
+      "port": 54321,
+      "region": "local",
+      "bucket": "files",
+      "root_path": "/storage"
+    }
+  },
+  "functions": {
+    "nodejs": {
+      "version": 18
+    }
+  },
+  "vector": {
+    "enabled": false
+  }
+}
