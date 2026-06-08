@@ -1,9 +1,4 @@
-import { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Error',
-  description: 'An error occurred',
-};
+'use client';
 
 export default function ErrorPage({
   error,

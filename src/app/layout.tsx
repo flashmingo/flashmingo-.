@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
-import './globals.css';
-import '@/styles/globals.css';
-import '@/styles/theme.css';
-import { AuthProvider } from '@/hooks/useAuth';
+import '../styles/globals.css';
+import '../styles/theme.css';
+import { AuthProvider } from '../hooks/useAuth';
 
 export const metadata: Metadata = {
   title: 'Kenmei - Secure Learning Platform',
