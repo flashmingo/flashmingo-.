@@ -1,304 +1,360 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useUser } from '@/hooks/useUser';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import Alert from '@/components/ui/Alert';
-import Loader from '@/components/ui/Loader';
-import { Flashcard, UserCardProgress, Deck } from '@/lib/types';
-import { calculateSM2, initializeSM2, SM2State } from '@/lib/sm2';
+import { use, useState, useCallback } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, RotateCcw, CheckCircle2, Eye, ChevronLeft, ChevronRight, Shuffle } from 'lucide-react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { calculateSM2, formatInterval } from '@/lib/sm2';
+import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { cn } from '@/lib/utils';
+import type { Flashcard, UserCardProgress } from '@/lib/types';
 
-interface StudyCard {
-  flashcard: Flashcard;
-  progress: UserCardProgress;
-  isFlipped: boolean;
+// ─── Types ────────────────────────────────────────────────────
+interface StudyCard extends Flashcard { progress: UserCardProgress | null; }
+
+// ─── API ──────────────────────────────────────────────────────
+async function fetchDueCards(deckId: string): Promise<StudyCard[]> {
+  const [cardsRes, progressRes] = await Promise.all([
+    fetch(`/api/decks/${deckId}/flashcards`),
+    fetch(`/api/decks/${deckId}/cards/due`),
+  ]);
+  const { data: cards = [] } = await cardsRes.json();
+  const { data: progress = [] } = await progressRes.json();
+  const progressMap = new Map<string, UserCardProgress>(
+    progress.map((p: UserCardProgress) => [p.flashcard_id, p])
+  );
+  return cards.map((card: Flashcard) => ({ ...card, progress: progressMap.get(card.id) ?? null }));
 }
 
-export default function StudyPage() {
-  const { user, isLoading: userLoading } = useUser();
-  const searchParams = useSearchParams();
-  const deckId = searchParams.get('deck');
+async function createSession(deckId: string): Promise<string> {
+  const res = await fetch('/api/study-sessions', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deck_id: deckId }),
+  });
+  return (await res.json()).data?.id ?? null;
+}
 
-  const [deck, setDeck] = useState<Deck | null>(null);
-  const [cards, setCards] = useState<StudyCard[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [sessionComplete, setSessionComplete] = useState(false);
-  const [stats, setStats] = useState({ reviewed: 0, correct: 0 });
+async function submitReview(payload: {
+  cardId: string; quality: number;
+  new_state: { ease_factor: number; interval_days: number; repetitions: number };
+  next_review_at: string; session_id: string | null;
+}) {
+  await fetch(`/api/cards/${payload.cardId}/review`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      quality: payload.quality, new_state: payload.new_state,
+      next_review_at: payload.next_review_at, session_id: payload.session_id,
+    }),
+  });
+}
 
-  // Load deck and cards
-  useEffect(() => {
-    if (!userLoading && user && deckId) {
-      loadDeck();
-    }
-  }, [user, userLoading, deckId]);
+// ─── Rating config ────────────────────────────────────────────
+const RATINGS = [
+  { quality: 0, label: 'Again',  sub: '1d',  variant: 'answer-again' as const },
+  { quality: 2, label: 'Hard',   sub: '2d',  variant: 'answer-hard'  as const },
+  { quality: 3, label: 'Good',   sub: '4d',  variant: 'answer-good'  as const },
+  { quality: 5, label: 'Easy',   sub: '7d',  variant: 'answer-easy'  as const },
+] as const;
 
-  const loadDeck = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Fetch deck
-      const deckRes = await fetch(`/api/decks/${deckId}`);
-      if (!deckRes.ok) throw new Error('Failed to load deck');
-      const deckData = await deckRes.json();
-      setDeck(deckData.data);
-
-      // Fetch flashcards due for review
-      const cardsRes = await fetch(`/api/decks/${deckId}/cards/due`);
-      if (!cardsRes.ok) throw new Error('Failed to load cards');
-      const cardsData = await cardsRes.json();
-
-      const studyCards: StudyCard[] = cardsData.data.map((item: any) => ({
-        flashcard: item.flashcard,
-        progress: item.progress,
-        isFlipped: false,
-      }));
-
-      setCards(studyCards);
-
-      if (studyCards.length === 0) {
-        setError('No cards due for review');
-      }
-
-      // Create study session
-      const sessionRes = await fetch('/api/study-sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_id: deckId }),
-      });
-      const sessionData = await sessionRes.json();
-      setSessionId(sessionData.data?.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load deck');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleReview = useCallback(
-    async (quality: number) => {
-      if (!cards[currentIndex] || !sessionId) return;
-
-      const card = cards[currentIndex];
-      const currentState = card.progress as SM2State;
-
-      // Calculate SM-2
-      const result = calculateSM2(currentState, quality);
-
-      try {
-        // Update progress
-        const response = await fetch(`/api/cards/${card.flashcard.id}/review`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            quality,
-            new_state: result.new_state,
-            next_review_at: result.next_review_date,
-            session_id: sessionId,
-          }),
-        });
-
-        if (!response.ok) throw new Error('Failed to save review');
-
-        // Update stats
-        setStats(prev => ({
-          reviewed: prev.reviewed + 1,
-          correct: prev.correct + (quality >= 3 ? 1 : 0),
-        }));
-
-        // Move to next card
-        if (currentIndex + 1 < cards.length) {
-          setCurrentIndex(currentIndex + 1);
-        } else {
-          setSessionComplete(true);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to save review');
-      }
-    },
-    [cards, currentIndex, sessionId]
+// ─── Wrapper ──────────────────────────────────────────────────
+function StudyShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-full flex-col bg-background">
+      {children}
+    </div>
   );
+}
 
-  if (userLoading || isLoading) {
+// ─── Main ─────────────────────────────────────────────────────
+export default function StudyPage({ searchParams }: { searchParams: Promise<{ deck?: string }> }) {
+  const { deck: deckId } = use(searchParams);
+
+  const [sessionId, setSessionId]     = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [flipped, setFlipped]         = useState(false);
+  const [results, setResults]         = useState<{ quality: number; cardId: string }[]>([]);
+  const [sessionStarted, setSessionStarted] = useState(false);
+  const [done, setDone]               = useState(false);
+
+  const { data: cards = [], isLoading } = useQuery({
+    queryKey: ['study-cards', deckId],
+    queryFn: () => fetchDueCards(deckId!),
+    enabled: !!deckId,
+  });
+
+  const reviewMutation = useMutation({ mutationFn: submitReview });
+
+  const startSession = useCallback(async () => {
+    if (!deckId) return;
+    const id = await createSession(deckId);
+    setSessionId(id);
+    setSessionStarted(true);
+    setCurrentIndex(0); setFlipped(false); setResults([]); setDone(false);
+  }, [deckId]);
+
+  const handleRate = useCallback((quality: number) => {
+    const card = cards[currentIndex];
+    if (!card) return;
+    const state = {
+      ease_factor:   card.progress?.ease_factor   ?? 2.5,
+      interval_days: card.progress?.interval_days ?? 0,
+      repetitions:   card.progress?.repetitions   ?? 0,
+    };
+    const review = calculateSM2(state, quality);
+    const newResults = [...results, { quality, cardId: card.id }];
+    setResults(newResults);
+    reviewMutation.mutate({
+      cardId: card.id, quality,
+      new_state: review.new_state,
+      next_review_at: review.next_review_date.toISOString(),
+      session_id: sessionId,
+    });
+    if (currentIndex + 1 >= cards.length) { setDone(true); }
+    else { setCurrentIndex((i) => i + 1); setFlipped(false); }
+  }, [cards, currentIndex, results, sessionId, reviewMutation]);
+
+  // ── No deck ──────────────────────────────────────────────────
+  if (!deckId) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Loader />
-      </div>
+      <StudyShell>
+        <div className="flex flex-col items-center justify-center flex-1 gap-4 p-8 text-center">
+          <p className="text-muted-foreground text-sm">Select a deck to start a study session.</p>
+          <Button asChild size="lg"><Link href="/decks">Browse decks</Link></Button>
+        </div>
+      </StudyShell>
     );
   }
 
-  if (!deck || cards.length === 0) {
+  // ── Loading ───────────────────────────────────────────────────
+  if (isLoading) {
     return (
-      <div className="space-y-6">
-        <h1 className="font-display text-3xl font-bold text-gray-900">Study</h1>
-        {error && <Alert type="error">{error}</Alert>}
-        {!error && (
-          <Card>
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No cards available to study right now.</p>
-              <a href="/decks" className="text-sakura-600 hover:underline mt-4">
-                Back to decks
-              </a>
+      <StudyShell>
+        <div className="flex flex-col items-center justify-center flex-1 gap-6 p-8">
+          <Skeleton className="h-64 w-full max-w-2xl rounded-2xl" />
+          <div className="flex gap-3">
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 w-28 rounded-xl" />)}
+          </div>
+        </div>
+      </StudyShell>
+    );
+  }
+
+  // ── No cards ──────────────────────────────────────────────────
+  if (cards.length === 0) {
+    return (
+      <StudyShell>
+        <div className="p-6">
+          <Button asChild variant="ghost" size="sm" className="-ml-2">
+            <Link href="/decks"><ArrowLeft className="h-4 w-4 mr-1.5" />Back to decks</Link>
+          </Button>
+        </div>
+        <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center">
+          <p className="text-sm font-semibold text-foreground">This deck has no cards yet.</p>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/decks/${deckId}`}>Add cards</Link>
+          </Button>
+        </div>
+      </StudyShell>
+    );
+  }
+
+  // ── Pre-session ───────────────────────────────────────────────
+  if (!sessionStarted) {
+    return (
+      <StudyShell>
+        <div className="p-6">
+          <Button asChild variant="ghost" size="sm" className="-ml-2">
+            <Link href="/decks"><ArrowLeft className="h-4 w-4 mr-1.5" />Back to decks</Link>
+          </Button>
+        </div>
+        <div className="flex flex-col items-center justify-center flex-1 gap-8 px-8 text-center">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground mb-1">Ready to study?</h2>
+            <p className="text-sm text-muted-foreground">{cards.length} cards in this session</p>
+          </div>
+          <div className="flex items-center gap-10">
+            <div className="text-center">
+              <p className="text-3xl font-bold text-foreground tabular-nums">{cards.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">Cards</p>
             </div>
-          </Card>
-        )}
-      </div>
-    );
-  }
-
-  if (sessionComplete) {
-    const accuracy = stats.reviewed > 0 ? Math.round((stats.correct / stats.reviewed) * 100) : 0;
-    return (
-      <div className="space-y-6 max-w-2xl">
-        <h1 className="font-display text-3xl font-bold text-gray-900">Study Session Complete!</h1>
-        <Card>
-          <div className="text-center py-12 space-y-4">
-            <div className="text-4xl font-bold text-sakura-600">{accuracy}%</div>
-            <p className="text-gray-600">{stats.correct} of {stats.reviewed} cards correct</p>
-            <div className="flex gap-4 justify-center">
-              <Button
-                variant="primary"
-                onClick={() => window.location.href = '/decks'}
-              >
-                Back to Decks
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setCurrentIndex(0);
-                  setSessionComplete(false);
-                  setStats({ reviewed: 0, correct: 0 });
-                  loadDeck();
-                }}
-              >
-                Study Again
-              </Button>
+            <div className="h-10 w-px bg-border" />
+            <div className="text-center">
+              <p className="text-3xl font-bold text-foreground">SM-2</p>
+              <p className="text-xs text-muted-foreground mt-1">Algorithm</p>
             </div>
           </div>
-        </Card>
-      </div>
+          <Button size="xl" onClick={startSession} className="px-12">
+            Start session
+          </Button>
+        </div>
+      </StudyShell>
     );
   }
 
-  const currentCard = cards[currentIndex];
-  const progress = (currentIndex / cards.length) * 100;
+  // ── Session complete ──────────────────────────────────────────
+  if (done) {
+    const correct = results.filter((r) => r.quality >= 3).length;
+    const pct = Math.round((correct / results.length) * 100);
+    return (
+      <StudyShell>
+        <div className="flex flex-col items-center justify-center flex-1 gap-8 px-8 text-center">
+          <CheckCircle2 className="h-12 w-12 text-teal-500" />
+          <div>
+            <h2 className="text-2xl font-bold text-foreground mb-1">Session complete</h2>
+            <p className="text-sm text-muted-foreground">
+              You reviewed {results.length} card{results.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-10">
+            <div className="text-center">
+              <p className={cn('text-3xl font-bold tabular-nums', pct >= 70 ? 'text-teal-600' : 'text-orange-500')}>{pct}%</p>
+              <p className="text-xs text-muted-foreground mt-1">Accuracy</p>
+            </div>
+            <div className="h-10 w-px bg-border" />
+            <div className="text-center">
+              <p className="text-3xl font-bold text-foreground tabular-nums">{correct}</p>
+              <p className="text-xs text-muted-foreground mt-1">Correct</p>
+            </div>
+            <div className="h-10 w-px bg-border" />
+            <div className="text-center">
+              <p className="text-3xl font-bold text-foreground tabular-nums">{results.length - correct}</p>
+              <p className="text-xs text-muted-foreground mt-1">Missed</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={startSession} size="lg">
+              <RotateCcw className="h-4 w-4" /> Study again
+            </Button>
+            <Button asChild size="lg"><Link href="/decks">Back to decks</Link></Button>
+          </div>
+        </div>
+      </StudyShell>
+    );
+  }
+
+  // ── Active study ──────────────────────────────────────────────
+  const card = cards[currentIndex];
+  const progressPct = Math.round((currentIndex / cards.length) * 100);
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <div className="space-y-2">
-        <h1 className="font-display text-3xl font-bold text-gray-900">
-          {deck?.name}
-        </h1>
-        <p className="text-gray-600">
-          Card {currentIndex + 1} of {cards.length}
-        </p>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-sakura-600 h-2 rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
+    <StudyShell>
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-white">
+        <Button asChild variant="ghost" size="sm" className="-ml-2">
+          <Link href="/decks"><ArrowLeft className="h-4 w-4 mr-1.5" />End session</Link>
+        </Button>
+
+        {/* Progress */}
+        <div className="flex items-center gap-3">
+          <div className="w-48 h-1.5 rounded-full bg-muted overflow-hidden hidden sm:block">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {currentIndex + 1} / {cards.length}
+          </span>
         </div>
+
+        <div className="w-24" />
       </div>
 
-      {error && <Alert type="error">{error}</Alert>}
+      {/* Main content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 gap-6 max-w-2xl mx-auto w-full">
 
-      {/* Flashcard */}
-      <Card>
-        <div className="min-h-64 flex flex-col items-center justify-center space-y-6">
-          <div className="text-center">
-            {!currentCard.isFlipped ? (
-              <>
-                <p className="text-sm text-gray-500 uppercase tracking-wide mb-4">Front</p>
-                <p className="text-2xl font-semibold text-gray-900">{currentCard.flashcard.front_text}</p>
-                {currentCard.flashcard.front_image_url && (
-                  <img
-                    src={currentCard.flashcard.front_image_url}
-                    alt="Front"
-                    className="max-h-32 mt-4 mx-auto"
-                  />
-                )}
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-gray-500 uppercase tracking-wide mb-4">Back</p>
-                <p className="text-2xl font-semibold text-gray-900">{currentCard.flashcard.back_text}</p>
-                {currentCard.flashcard.back_image_url && (
-                  <img
-                    src={currentCard.flashcard.back_image_url}
-                    alt="Back"
-                    className="max-h-32 mt-4 mx-auto"
-                  />
-                )}
-              </>
+        {/* Flashcard */}
+        <div
+          className={cn(
+            'w-full rounded-2xl border bg-white transition-all duration-200 cursor-pointer select-none',
+            'min-h-[260px] flex flex-col',
+            flipped
+              ? 'border-blue-200 shadow-flashcard'
+              : 'border-border shadow-md hover:shadow-lg hover:border-slate-300'
+          )}
+          onClick={() => setFlipped((f) => !f)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === ' ' && setFlipped((f) => !f)}
+          aria-label={flipped ? 'Showing answer — click to flip' : 'Click to reveal answer'}
+        >
+          {/* Card header */}
+          <div className={cn(
+            'px-5 py-3 border-b flex items-center justify-between',
+            flipped ? 'border-blue-100 bg-blue-50/50' : 'border-border bg-muted/20'
+          )}>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {flipped ? 'Answer' : 'Question'}
+            </span>
+            {!flipped && (
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Eye className="h-3 w-3" /> Click to reveal
+              </span>
             )}
           </div>
 
-          {!currentCard.isFlipped ? (
-            <Button
-              variant="primary"
-              onClick={() => {
-                const newCards = [...cards];
-                newCards[currentIndex].isFlipped = true;
-                setCards(newCards);
-              }}
-            >
-              Reveal Answer
-            </Button>
-          ) : (
-            <div className="space-y-3 w-full">
-              <p className="text-sm text-gray-600 text-center">How did you do?</p>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => handleReview(0)}
-                >
-                  Again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleReview(3)}
-                >
-                  Good
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => handleReview(5)}
-                >
-                  Easy
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {/* Stats */}
-      <Card>
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-gray-600 text-sm">Reviewed</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.reviewed}</p>
-          </div>
-          <div>
-            <p className="text-gray-600 text-sm">Correct</p>
-            <p className="text-2xl font-bold text-green-600">{stats.correct}</p>
-          </div>
-          <div>
-            <p className="text-gray-600 text-sm">Accuracy</p>
-            <p className="text-2xl font-bold text-gray-900">
-              {stats.reviewed > 0 ? Math.round((stats.correct / stats.reviewed) * 100) : 0}%
+          {/* Card body */}
+          <div className="flex-1 flex items-center justify-center px-10 py-8">
+            <p className={cn(
+              'text-center leading-relaxed whitespace-pre-wrap text-foreground',
+              card.front_text.length > 120 ? 'text-base' : 'text-xl font-medium'
+            )}>
+              {flipped ? card.back_text : card.front_text}
             </p>
           </div>
         </div>
-      </Card>
-    </div>
+
+        {/* Answer buttons */}
+        {flipped ? (
+          <div className="w-full space-y-2">
+            <p className="text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              How well did you recall this?
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {RATINGS.map(({ quality, label, variant }) => {
+                const review = calculateSM2(
+                  {
+                    ease_factor:   card.progress?.ease_factor   ?? 2.5,
+                    interval_days: card.progress?.interval_days ?? 0,
+                    repetitions:   card.progress?.repetitions   ?? 0,
+                  },
+                  quality
+                );
+                const interval = formatInterval(review.new_state.interval_days);
+                return (
+                  <button
+                    key={quality}
+                    onClick={() => handleRate(quality)}
+                    className={cn(
+                      'flex flex-col items-center gap-0.5 rounded-xl border py-3.5 px-2',
+                      'text-sm font-semibold transition-all duration-150',
+                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      'active:scale-[0.97]',
+                      variant === 'answer-again' && 'border-red-200    bg-white text-red-600    hover:bg-red-50    hover:border-red-300',
+                      variant === 'answer-hard'  && 'border-orange-200 bg-white text-orange-600 hover:bg-orange-50 hover:border-orange-300',
+                      variant === 'answer-good'  && 'border-blue-200   bg-white text-blue-600   hover:bg-blue-50   hover:border-blue-300',
+                      variant === 'answer-easy'  && 'border-teal-300   bg-white text-teal-700   hover:bg-teal-50   hover:border-teal-400',
+                    )}
+                  >
+                    <span className="text-[13px] font-semibold">{label}</span>
+                    <span className="text-[11px] opacity-60 font-normal">{interval}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <Button
+            onClick={() => setFlipped(true)}
+            variant="outline"
+            size="xl"
+            className="px-12"
+          >
+            Show answer
+          </Button>
+        )}
+      </div>
+    </StudyShell>
   );
 }

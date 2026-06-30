@@ -1,109 +1,59 @@
-import { supabaseServer } from '@/lib/supabaseServer';
 import { NextRequest, NextResponse } from 'next/server';
-import { Deck } from '@/lib/types';
+import { createClient } from '@/lib/supabase/server';
 
-/**
- * GET /api/decks - List user's decks
- */
-export async function GET(request: NextRequest) {
-  try {
-    const { data: { session } } = await supabaseServer.auth.getSession();
+export async function GET() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Get user's own decks
-    const { data: decks, error } = await supabaseServer
-      .from('decks')
-      .select('*')
-      .eq('owner_id', session.user.id)
-      .order('created_at', { ascending: false });
+  const { data, error } = await supabase
+    .from('decks')
+    .select('*')
+    .eq('owner_id', user.id)
+    .order('updated_at', { ascending: false });
 
-    if (error) {
-      throw error;
-    }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({
-      data: decks as Deck[],
-    });
-  } catch (error) {
-    console.error('Fetch decks error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch decks' },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ data });
 }
 
-/**
- * POST /api/decks - Create a new deck
- */
 export async function POST(request: NextRequest) {
-  try {
-    const { data: { session } } = await supabaseServer.auth.getSession();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { name, description, is_public } = await request.json();
+  const body = await request.json();
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
 
-    // Validate
-    if (!name || name.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Deck name is required' },
-        { status: 400 }
-      );
-    }
+  if (!name) return NextResponse.json({ error: 'Deck name is required' }, { status: 400 });
+  if (name.length > 100) return NextResponse.json({ error: 'Name too long (max 100)' }, { status: 400 });
 
-    if (name.length > 255) {
-      return NextResponse.json(
-        { error: 'Deck name must be less than 255 characters' },
-        { status: 400 }
-      );
-    }
+  const { data, error } = await supabase
+    .from('decks')
+    .insert({
+      owner_id: user.id,
+      name,
+      description: typeof body.description === 'string' ? body.description.trim() || null : null,
+      is_public: Boolean(body.is_public),
+    })
+    .select()
+    .single();
 
-    // Create deck
-    const { data: deck, error } = await supabaseServer
-      .from('decks')
-      .insert({
-        owner_id: session.user.id,
-        name: name.trim(),
-        description: description?.trim() || null,
-        is_public: Boolean(is_public),
-      })
-      .select()
-      .single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    if (error) {
-      throw error;
-    }
+  await supabase.from('audit_logs').insert({
+    user_id: user.id,
+    action_type: 'deck_created',
+    resource_type: 'deck',
+    resource_id: data.id,
+    details: { name },
+  });
 
-    // Log audit
-    await supabaseServer.from('audit_logs').insert({
-      user_id: session.user.id,
-      action_type: 'deck_created',
-      resource_type: 'deck',
-      resource_id: deck.id,
-      details: { name },
-    });
-
-    return NextResponse.json(
-      { data: deck as Deck },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error('Create deck error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create deck' },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ data }, { status: 201 });
 }

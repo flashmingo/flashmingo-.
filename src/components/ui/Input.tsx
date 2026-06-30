@@ -1,37 +1,29 @@
-'use client';
+import * as React from 'react';
+import { cn } from '@/lib/utils';
 
-import React, { InputHTMLAttributes } from 'react';
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
-  hint?: string;
-}
-
-export default function Input({
-  label,
-  error,
-  hint,
-  id,
-  className = '',
-  ...props
-}: InputProps) {
-  return (
-    <div className="space-y-1">
-      {label && (
-        <label htmlFor={id} className="block text-sm font-semibold text-gray-700">
-          {label}
-        </label>
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => (
+    <input
+      type={type}
+      className={cn(
+        'flex h-8 w-full rounded-lg border border-border bg-white px-3 py-1.5',
+        'text-sm text-foreground placeholder:text-muted-foreground',
+        'transition-colors duration-150',
+        'hover:border-slate-300',
+        'focus-visible:outline-none focus-visible:border-primary/60',
+        'focus-visible:shadow-[0_0_0_3px_hsl(217_91%_54%/0.1)]',
+        'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted',
+        'file:border-0 file:bg-transparent file:text-sm file:font-medium',
+        className
       )}
-      <input
-        id={id}
-        className={`w-full rounded-lg border-2 ${
-          error ? 'border-red-500' : 'border-gray-200'
-        } bg-white px-4 py-2.5 text-base text-gray-900 transition-colors placeholder:text-gray-500 focus:border-sakura-600 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed ${className}`}
-        {...props}
-      />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {hint && <p className="text-sm text-gray-500">{hint}</p>}
-    </div>
-  );
-}
+      ref={ref}
+      {...props}
+    />
+  )
+);
+Input.displayName = 'Input';
+
+export { Input };
+export default Input;

@@ -1,38 +1,36 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import '../styles/globals.css';
-import '../styles/theme.css';
-import { AuthProvider } from '../hooks/useAuth';
+import { Providers } from '@/components/providers';
 
 export const metadata: Metadata = {
-  title: 'Kenmei - Secure Learning Platform',
+  title: {
+    default: 'FlashMingo — Secure Flashcard Platform for Schools',
+    template: '%s | FlashMingo',
+  },
   description:
-    'Kenmei is a secure, comprehensive learning and studying platform for K-12 students. Create flashcards, study with spaced repetition, and track your learning progress.',
-  keywords: ['flashcards', 'spaced repetition', 'learning', 'study', 'education', 'kenmei'],
-  authors: [{ name: 'Kenmei' }],
+    'FlashMingo is a privacy-first flashcard and study platform for K–12 schools. Built for districts that require FERPA compliance, student data minimization, and enterprise control.',
+  keywords: ['flashcards', 'spaced repetition', 'education', 'K-12', 'FERPA', 'school'],
+  authors: [{ name: 'FlashMingo' }],
+  robots: { index: false, follow: false }, // Private platform — no indexing
   openGraph: {
-    title: 'Kenmei - Secure Learning Platform',
-    description: 'Master learning with spaced repetition and active recall',
+    title: 'FlashMingo — Secure Flashcard Platform for Schools',
+    description: 'Privacy-first flashcard study tool for K–12 districts.',
     type: 'website',
+    siteName: 'FlashMingo',
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#0F1729',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="scroll-smooth">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="theme-color" content="#f05b8f" />
-      </head>
-      <body className="bg-white text-indigo-900 antialiased">
-        <AuthProvider>
-          <div className="flex min-h-screen flex-col">
-            {children}
-          </div>
-        </AuthProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -1,5 +1,5 @@
 {
-  "project_id": "your-project-id",
+  "project_id": "flashmingo",
   "api": {
     "port": 54321,
     "schemas": ["public", "graphql_public"],
