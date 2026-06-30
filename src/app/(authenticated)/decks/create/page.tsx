@@ -2,18 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/hooks/useUser';
-import Card from '@/components/ui/Card';
-import Input from '@/components/ui/Input';
-import Checkbox from '@/components/ui/Checkbox';
-import Button from '@/components/ui/Button';
-import Alert from '@/components/ui/Alert';
-import Loader from '@/components/ui/Loader';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 
 export default function CreateDeckPage() {
   const router = useRouter();
-  const { user, isLoading: userLoading } = useUser();
-
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(false);
@@ -22,7 +16,6 @@ export default function CreateDeckPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!name.trim()) {
       setError('Deck name is required');
       return;
@@ -32,7 +25,7 @@ export default function CreateDeckPage() {
     setError(null);
 
     try {
-      const response = await fetch('/api/decks', {
+      const res = await fetch('/api/decks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -42,12 +35,9 @@ export default function CreateDeckPage() {
         }),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create deck');
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to create deck');
 
-      const data = await response.json();
       router.push(`/decks/${data.data.id}/cards`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create deck');
@@ -56,79 +46,83 @@ export default function CreateDeckPage() {
     }
   };
 
-  if (userLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader />
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="p-6 md:p-8 max-w-xl space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold text-gray-900">Create New Deck</h1>
-        <p className="mt-2 text-gray-600">Start by naming your deck</p>
+        <h1 className="font-display text-2xl font-bold text-foreground">Create New Deck</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Give your flashcard collection a name and description.
+        </p>
       </div>
 
       <Card>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && <Alert type="error">{error}</Alert>}
+        <CardHeader>
+          <CardTitle>Deck Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
 
-          <Input
-            id="name"
-            label="Deck Name"
-            type="text"
-            placeholder="e.g., Spanish Vocabulary"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={isLoading}
-            hint="Give your deck a clear, descriptive name"
-          />
+            <div className="space-y-1.5">
+              <label htmlFor="name" className="text-sm font-medium leading-none">
+                Deck Name <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="name"
+                placeholder="e.g., Spanish Vocabulary"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={isLoading}
+                maxLength={100}
+              />
+            </div>
 
-          <div>
-            <label htmlFor="description" className="block text-sm font-semibold text-gray-700 mb-1">
-              Description
+            <div className="space-y-1.5">
+              <label htmlFor="description" className="text-sm font-medium leading-none">
+                Description
+              </label>
+              <textarea
+                id="description"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="What is this deck about? (optional)"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                disabled={isLoading}
+                rows={3}
+                maxLength={500}
+              />
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none text-sm">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                disabled={isLoading}
+                className="h-4 w-4 rounded border border-input accent-primary"
+              />
+              Make this deck visible to other students
             </label>
-            <textarea
-              id="description"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 placeholder-gray-400 focus:border-sakura-500 focus:outline-none focus:ring-1 focus:ring-sakura-500"
-              placeholder="What is this deck about? (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={isLoading}
-              rows={4}
-            />
-            <p className="mt-1 text-xs text-gray-500">Optional: Add a description to help remember what this deck covers</p>
-          </div>
 
-          <Checkbox
-            id="isPublic"
-            label="Make this deck public (anyone can view)"
-            checked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-            disabled={isLoading}
-          />
-
-          <div className="flex gap-3">
-            <Button
-              type="submit"
-              variant="primary"
-              isLoading={isLoading}
-              disabled={isLoading}
-            >
-              Create Deck
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => router.back()}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" isLoading={isLoading} disabled={isLoading}>
+                Create Deck
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
       </Card>
     </div>
   );

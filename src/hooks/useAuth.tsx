@@ -1,151 +1,96 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import { Session } from '@supabase/supabase-js';
-import { Profile } from '@/lib/types';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { Session, User } from '@supabase/supabase-js';
+import type { Profile } from '@/lib/types';
 
-interface AuthContextType {
+interface AuthContextValue {
   session: Session | null;
-  user: Profile | null;
+  user: User | null;
+  profile: Profile | null;
   isLoading: boolean;
-  signUp: (username: string, password: string, role: 'student' | 'teacher' | 'administrator') => Promise<{ success: boolean; error?: string }>;
-  signIn: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<Profile | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize auth on mount
+  const supabase = createClient();
+
+  const fetchProfile = useCallback(
+    async (userId: string) => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      setProfile(data as Profile | null);
+    },
+    [supabase]
+  );
+
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const {
-          data: { session: initialSession },
-        } = await supabase.auth.getSession();
-        
-        setSession(initialSession);
-        
-        if (initialSession?.user?.id) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', initialSession.user.id)
-            .single();
-          
-          setUser(profile as Profile);
-        }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) fetchProfile(s.user.id);
+      setIsLoading(false);
+    });
 
-    initializeAuth();
-
-    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      setSession(newSession);
-      
-      if (newSession?.user?.id) {
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', newSession.user.id)
-            .single();
-          
-          setUser(profile as Profile);
-        } catch (error) {
-          console.error('Error fetching profile:', error);
-        }
+    } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) {
+        fetchProfile(s.user.id);
       } else {
-        setUser(null);
+        setProfile(null);
       }
     });
 
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, []);
+    return () => subscription.unsubscribe();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const signUp = async (username: string, password: string, role: 'student' | 'teacher' | 'administrator') => {
-    try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, role }),
-      });
+  const signInWithGoogle = useCallback(async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          // Request full profile scope for display name + avatar
+          access_type: 'offline',
+          prompt: 'select_account',
+        },
+      },
+    });
+  }, [supabase]);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Signup failed' };
-      }
-
-      // Refresh session after signup
-      const { data: { session: newSession } } = await supabase.auth.getSession();
-      setSession(newSession);
-
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: String(error) };
-    }
-  };
-
-  const signIn = async (username: string, password: string) => {
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Login failed' };
-      }
-
-      // Refresh session after login
-      const { data: { session: newSession } } = await supabase.auth.getSession();
-      setSession(newSession);
-
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: String(error) };
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      setSession(null);
-      setUser(null);
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
-  };
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+  }, [supabase]);
 
   return (
-    <AuthContext.Provider value={{ session, user, isLoading, signUp, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{ session, user, profile, isLoading, signInWithGoogle, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 }

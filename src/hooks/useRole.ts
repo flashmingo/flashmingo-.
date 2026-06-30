@@ -1,18 +1,18 @@
 'use client';
 
-import { useUser } from './useUser';
+import { useAuth } from './useAuth';
 import { isStudent, isTeacher, isAdmin, isAccountApproved } from '@/lib/permissions';
 
 export function useRole() {
-  const { user, isLoading } = useUser();
+  const { profile, isLoading } = useAuth();
 
   return {
-    user,
+    user: profile,
     isLoading,
-    isStudent: isStudent(user),
-    isTeacher: isTeacher(user),
-    isAdmin: isAdmin(user),
-    isApproved: isAccountApproved(user),
-    role: user?.role || null,
+    isStudent: isStudent(profile),
+    isTeacher: isTeacher(profile),
+    isAdmin: isAdmin(profile),
+    isApproved: isAccountApproved(profile),
+    role: profile?.role ?? null,
   };
 }

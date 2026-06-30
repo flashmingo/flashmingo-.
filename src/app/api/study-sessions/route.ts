@@ -1,45 +1,24 @@
-import { supabaseServer } from '@/lib/supabaseServer';
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
-/**
- * POST /api/study-sessions - Create a study session
- */
 export async function POST(request: NextRequest) {
-  try {
-    const { data: { session } } = await supabaseServer.auth.getSession();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { deck_id } = await request.json();
+  const { deck_id } = await request.json();
+  if (!deck_id) return NextResponse.json({ error: 'deck_id required' }, { status: 400 });
 
-    const { data: studySession, error } = await supabaseServer
-      .from('study_sessions')
-      .insert({
-        user_id: session.user.id,
-        deck_id,
-        started_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+  const { data, error } = await supabase
+    .from('study_sessions')
+    .insert({ user_id: user.id, deck_id })
+    .select()
+    .single();
 
-    if (error) {
-      throw error;
-    }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json(
-      { data: studySession },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error('Create study session error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create study session' },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ data }, { status: 201 });
 }

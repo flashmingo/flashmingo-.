@@ -1,54 +1,38 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
 import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import Sidebar from '@/components/layout/Sidebar';
 
-export default function AuthenticatedLayout({
+export default async function AuthenticatedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const { session, isLoading } = useAuth();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  useEffect(() => {
-    // If not loading and no session, redirect to login
-    if (!isLoading && !session) {
-      router.push('/auth/login');
-    }
-  }, [session, isLoading, router]);
-
-  // Show loading state while checking auth
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-sakura-200 border-t-sakura-600"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render if no session (will redirect)
-  if (!session) {
-    return null;
+  if (!user) {
+    redirect('/auth/login');
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <div className="flex flex-1">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* Sidebar — fixed width, full height */}
+      <Sidebar />
+
+      {/* Main content area */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Header />
+        <main
+          id="main-content"
+          className="flex-1 overflow-y-auto"
+          tabIndex={-1}
+        >
           {children}
         </main>
       </div>
-      <Footer />
     </div>
   );
 }
