@@ -35,10 +35,17 @@ export async function updateSession(request: NextRequest) {
 
   const isPublicRoute =
     pathname === '/' ||
+    pathname === '/privacy' ||
+    pathname === '/terms' ||
     pathname.startsWith('/auth/') ||
-    pathname.startsWith('/api/auth/');
+    pathname.startsWith('/api/auth/') ||
+    pathname === '/api/demo-request';
 
   if (!user && !isPublicRoute) {
+    // API routes get a JSON 401, not an HTML redirect
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const url = request.nextUrl.clone();
     url.pathname = '/auth/login';
     return NextResponse.redirect(url);

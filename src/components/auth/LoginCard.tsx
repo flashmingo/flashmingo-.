@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { Shield, AlertCircle, BookOpen, Brain, Users } from 'lucide-react';
@@ -80,7 +81,10 @@ export function LoginCard() {
         </Button>
 
         <p className="text-center text-xs text-muted-foreground leading-relaxed">
-          By signing in you agree to your district&apos;s acceptable use policy.
+          By signing in you agree to our{' '}
+          <Link href="/terms" className="underline hover:text-foreground">Terms</Link>
+          {' '}and{' '}
+          <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
         </p>
       </div>
 
