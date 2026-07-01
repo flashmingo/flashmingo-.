@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Brain, Zap, Users, Globe, BarChart2, Shield,
@@ -182,6 +183,34 @@ function HeroFlashcard() {
 /* ────────────────────────────── Page ─────────────────────────────────── */
 export function LandingPage() {
   const year = new Date().getFullYear();
+  const router = useRouter();
+  const [demoForm, setDemoForm] = useState({ name: '', email: '', school: '', useCase: '' });
+  const [demoStatus, setDemoStatus] = useState<string | null>(null);
+  const [demoSubmitting, setDemoSubmitting] = useState(false);
+
+  const handleDemoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDemoSubmitting(true);
+    setDemoStatus(null);
+
+    try {
+      const res = await fetch('/api/demo-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(demoForm),
+      });
+
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error ?? 'Unable to submit demo request.');
+
+      setDemoStatus('Thanks! Your demo request has been received.');
+      setDemoForm({ name: '', email: '', school: '', useCase: '' });
+    } catch (error) {
+      setDemoStatus(error instanceof Error ? error.message : 'Unable to submit demo request.');
+    } finally {
+      setDemoSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#FBFAF7] font-sans text-[#1B1A18]">
@@ -430,17 +459,18 @@ export function LandingPage() {
               A 30-minute walkthrough of setup, SSO, and the compliance checklist.
             </p>
           </Reveal>
-          <div className="flex flex-col gap-3 rounded-[18px] border border-[#E9E3D7] bg-white p-6 text-left shadow-[0_1px_2px_rgba(27,26,24,0.03)]">
-            <input type="text" placeholder="Your name" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
-            <input type="email" placeholder="School email address" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
-            <input type="text" placeholder="School / district name" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
-            <textarea rows={3} placeholder="Tell us about your use case (optional)" className="w-full resize-none rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
-            <Button className="h-[46px] w-full rounded-[11px] bg-[#2563EB] text-[15px] hover:bg-[#1D4ED8]">
+          <form onSubmit={handleDemoSubmit} className="flex flex-col gap-3 rounded-[18px] border border-[#E9E3D7] bg-white p-6 text-left shadow-[0_1px_2px_rgba(27,26,24,0.03)]">
+            <input value={demoForm.name} onChange={(e) => setDemoForm((prev) => ({ ...prev, name: e.target.value }))} type="text" placeholder="Your name" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" required />
+            <input value={demoForm.email} onChange={(e) => setDemoForm((prev) => ({ ...prev, email: e.target.value }))} type="email" placeholder="School email address" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" required />
+            <input value={demoForm.school} onChange={(e) => setDemoForm((prev) => ({ ...prev, school: e.target.value }))} type="text" placeholder="School / district name" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" required />
+            <textarea value={demoForm.useCase} onChange={(e) => setDemoForm((prev) => ({ ...prev, useCase: e.target.value }))} rows={3} placeholder="Tell us about your use case (optional)" className="w-full resize-none rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
+            <Button type="submit" disabled={demoSubmitting} className="h-[46px] w-full rounded-[11px] bg-[#2563EB] text-[15px] hover:bg-[#1D4ED8]">
               <Mail className="h-[18px] w-[18px]" />
-              Request a demo
+              {demoSubmitting ? 'Submitting…' : 'Request a demo'}
             </Button>
+            {demoStatus ? <p className="text-center text-[12px] text-[#1B1A18]">{demoStatus}</p> : null}
             <p className="text-center text-[11px] text-[#A39E93]">No commitment. We&apos;ll respond within one business day.</p>
-          </div>
+          </form>
         </div>
       </section>
 

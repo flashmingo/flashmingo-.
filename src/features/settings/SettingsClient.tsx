@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   User, Mail, Shield, Calendar, Trophy, LogOut,
@@ -48,6 +49,8 @@ export function SettingsClient({ profile, email }: Props) {
   const qc = useQueryClient();
   const [optedIn, setOptedIn] = useState(profile?.leaderboard_opt_in ?? false);
   const [signOutLoading, setSignOutLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
 
   const initials = (profile?.full_name ?? 'U')
     .split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
@@ -68,6 +71,25 @@ export function SettingsClient({ profile, email }: Props) {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/auth/login');
+  };
+
+  const handleDeleteData = async () => {
+    const confirmed = window.confirm('This will request deletion of your account and related data. Continue?');
+    if (!confirmed) return;
+
+    setDeleteLoading(true);
+    setDeleteMessage(null);
+
+    try {
+      const res = await fetch('/api/account/delete-data', { method: 'POST' });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error ?? 'Unable to delete data.');
+      setDeleteMessage('Your deletion request has been submitted.');
+    } catch (error) {
+      setDeleteMessage(error instanceof Error ? error.message : 'Unable to delete data.');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   return (
@@ -167,6 +189,34 @@ export function SettingsClient({ profile, email }: Props) {
           No personal data is sold or shared with third parties. Student data is protected
           under <strong className="text-foreground">FERPA</strong>.
         </p>
+        <div className="mt-3 flex flex-wrap gap-3 text-sm">
+          <Link href="/privacy-policy" className="text-primary underline-offset-4 hover:underline">Privacy Policy</Link>
+          <Link href="/terms-of-service" className="text-primary underline-offset-4 hover:underline">Terms of Service</Link>
+        </div>
+      </div>
+
+      {/* Account actions */}
+      <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50"
+          onClick={handleDeleteData}
+          disabled={deleteLoading}
+        >
+          {deleteLoading ? 'Processing…' : 'Delete my data'}
+        </Button>
+        {deleteMessage ? <p className="text-sm text-muted-foreground">{deleteMessage}</p> : null}
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+          onClick={handleSignOut}
+          disabled={signOutLoading}
+        >
+          <LogOut className="h-3.5 w-3.5 mr-1.5" />
+          {signOutLoading ? 'Signing out…' : 'Sign out'}
+        </Button>
       </div>
 
       {/* Sign out */}
