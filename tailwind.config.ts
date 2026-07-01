@@ -76,6 +76,9 @@ const config: Config = {
         'scale-in':       { from: { opacity: '0', transform: 'scale(0.96)' }, to: { opacity: '1', transform: 'scale(1)' } },
         'card-flip':      { '0%': { transform: 'rotateY(0deg)' }, '100%': { transform: 'rotateY(180deg)' } },
         shimmer:          { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
+        /* Landing-page hero flashcard */
+        'fm-flip':        { '0%,40%': { transform: 'rotateY(0deg)' }, '50%,90%': { transform: 'rotateY(180deg)' }, '100%': { transform: 'rotateY(0deg)' } },
+        'fm-float':       { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-7px)' } },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -86,6 +89,8 @@ const config: Config = {
         'scale-in':       'scale-in 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
         'card-flip':      'card-flip 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
         shimmer:          'shimmer 1.8s linear infinite',
+        'fm-flip':        'fm-flip 8s ease-in-out infinite',
+        'fm-float':       'fm-float 6s ease-in-out infinite',
       },
     },
   },
