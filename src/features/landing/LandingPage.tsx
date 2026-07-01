@@ -1,413 +1,482 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  Shield, BookOpen, Users, BarChart2, Brain, Zap,
-  CheckCircle2, ChevronRight, Lock, FileText, Globe,
-  GraduationCap, Trophy, Mail,
+  Brain, Zap, Users, Globe, BarChart2, Shield,
+  GraduationCap, Lock, FileText, Mail, Check, RefreshCw,
 } from 'lucide-react';
 import { FlashMingoLogo } from '@/components/brand/FlashMingoLogo';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
-/* ─────────────────────────── Feature data ────────────────────────────── */
+/* ────────────────────────────── Data ─────────────────────────────────── */
 const features = [
+  { icon: Brain,     tone: 'blue',  title: 'Spaced Repetition',      desc: "The SM-2 algorithm resurfaces each card right before you'd forget it." },
+  { icon: Zap,       tone: 'amber', title: 'AI Deck Generator',      desc: 'Describe a topic and get a complete flashcard deck in seconds.' },
+  { icon: Users,     tone: 'blue',  title: 'Classroom Management',   desc: 'Create classrooms, enrol students, share decks, and track progress.' },
+  { icon: Globe,     tone: 'amber', title: 'District Deck Library',  desc: 'Publish and browse peer-reviewed decks across your district.' },
+  { icon: BarChart2, tone: 'blue',  title: 'Analytics & Leaderboards', desc: 'Streaks, activity charts, and opt-in district leaderboards.' },
+  { icon: Shield,    tone: 'amber', title: 'District Admin Controls', desc: 'Approve accounts, manage roles, and audit every action.' },
+] as const;
+
+const audiences = [
   {
-    icon: Brain,
-    title: 'Spaced Repetition',
-    desc: 'SM-2 algorithm surfaces the right cards at the right time — maximising retention with minimal effort.',
-    color: 'text-primary',
-    bg: 'bg-primary/5',
+    icon: GraduationCap, tone: 'blue', title: 'For students',
+    intro: 'Study smarter and stay motivated.',
+    points: ['AI-built decks in seconds', 'Spaced-repetition review', 'Streaks & leaderboards'],
   },
   {
-    icon: Zap,
-    title: 'AI Deck Generator',
-    desc: 'Describe what you\'re studying and FlashMingo builds a complete flashcard deck in seconds.',
-    color: 'text-teal-600',
-    bg: 'bg-teal-50',
+    icon: Users, tone: 'amber', title: 'For teachers',
+    intro: 'Run classrooms and see who needs help.',
+    points: ['Create & manage classrooms', 'Progress dashboard', 'Publish decks to the district'],
   },
   {
-    icon: Users,
-    title: 'Classroom Management',
-    desc: 'Teachers create classrooms, enrol students, and share decks. Track progress from a PowerSchool-style dashboard.',
-    color: 'text-violet-600',
-    bg: 'bg-violet-50',
+    icon: Shield, tone: 'blue', title: 'For admins',
+    intro: 'Keep the district compliant and in control.',
+    points: ['Approve & manage accounts', 'Roles & full audit log', 'District-scoped data'],
   },
-  {
-    icon: Globe,
-    title: 'District Deck Library',
-    desc: 'Teachers publish decks to a district-scoped library. Students browse and study peer-reviewed content.',
-    color: 'text-blue-600',
-    bg: 'bg-blue-50',
-  },
-  {
-    icon: BarChart2,
-    title: 'Analytics & Leaderboards',
-    desc: 'Study streaks, 30-day activity charts, and opt-in district leaderboards keep students motivated.',
-    color: 'text-amber-600',
-    bg: 'bg-amber-50',
-  },
-  {
-    icon: Shield,
-    title: 'District Admin Controls',
-    desc: 'Approve accounts, change roles, suspend users, and audit every action in the full audit log.',
-    color: 'text-slate-600',
-    bg: 'bg-slate-100',
-  },
-];
+] as const;
 
 const securityPoints = [
-  'FERPA compliant — student data never sold or shared',
-  'Google Workspace SSO — no separate passwords',
-  'Role-based access: student, teacher, administrator',
-  'Pending-approval workflow for all new accounts',
-  'Full admin audit log for every user action',
-  'District-scoped data — no cross-district visibility',
-];
+  { icon: Lock,     title: 'Google SSO only',   desc: 'No passwords to manage or breach.' },
+  { icon: Shield,   title: 'FERPA compliant',   desc: 'Student data never sold or shared.' },
+  { icon: FileText, title: 'Full audit log',    desc: 'Every action logged with a timestamp.' },
+  { icon: Users,    title: 'Role-based access', desc: 'District-scoped — no cross-district visibility.' },
+] as const;
 
-const pricingTiers = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    desc: 'For individual students and teachers getting started.',
-    features: [
-      'Unlimited personal decks',
-      'AI deck generation',
-      'Spaced repetition',
-      'Join classrooms',
-      'Browse public decks',
-    ],
-    cta: 'Get started free',
-    href: '/auth/login',
-    highlight: false,
-  },
-  {
-    name: 'District',
-    price: 'Custom',
-    period: 'per school year',
-    desc: 'For districts that need admin controls and compliance.',
-    features: [
-      'Everything in Free',
-      'Admin dashboard',
-      'Account approval workflow',
-      'Full audit logs',
-      'District-scoped library',
-      'Priority support',
-      'FERPA data processing agreement',
-    ],
-    cta: 'Request a demo',
-    href: '#demo',
-    highlight: true,
-  },
-];
+const freeFeatures = ['Unlimited personal decks', 'AI deck generation', 'Spaced repetition', 'Join classrooms'];
+const districtFeatures = ['Everything in Free', 'Admin dashboard & approvals', 'Full audit logs', 'District-scoped library', 'Priority support & DPA'];
 
 const faqs = [
-  {
-    q: 'Is FlashMingo FERPA compliant?',
-    a: 'Yes. FlashMingo collects only the information your school provides via Google Workspace. No student data is sold, shared, or used for advertising.',
-  },
-  {
-    q: 'Do students need a separate password?',
-    a: 'No. FlashMingo uses Google Workspace SSO exclusively. Students and teachers sign in with their existing school Google account.',
-  },
-  {
-    q: 'How does the approval workflow work?',
-    a: 'When a new user signs in for the first time, their account is set to "pending." A district administrator reviews and approves each account before it becomes active.',
-  },
-  {
-    q: 'Can teachers see student progress?',
-    a: 'Yes. Teachers have a dedicated dashboard showing each student\'s sessions, cards reviewed, and accuracy over the last 30 days for their classrooms.',
-  },
-  {
-    q: 'What is spaced repetition?',
-    a: 'Spaced repetition is a learning technique that shows you cards at increasing intervals based on how well you know them. FlashMingo uses the SM-2 algorithm — the same system used by Anki.',
-  },
-  {
-    q: 'Is there a mobile app?',
-    a: 'FlashMingo is a responsive web app that works on phones and tablets. A native app is planned for a future release.',
-  },
+  { q: 'Is FlashMingo FERPA compliant?', a: 'Yes. Student data is never sold, shared, or used for advertising.' },
+  { q: 'Do students need a separate password?', a: 'No — everyone signs in with their existing school Google account.' },
+  { q: 'How does account approval work?', a: 'New accounts start as "pending" until a district admin approves them.' },
+  { q: 'What is spaced repetition?', a: 'A technique that reviews cards at growing intervals. We use SM-2 — the algorithm behind Anki.' },
+  { q: 'Is there a mobile app?', a: 'FlashMingo is a responsive web app; a native app is planned.' },
 ];
 
-/* ─────────────────────────── Components ──────────────────────────────── */
-function NavBar() {
+/* ────────────────────────── Scroll reveal ────────────────────────────── */
+/**
+ * Progressive-enhancement wrapper: below-the-fold children start hidden and
+ * fade/rise in on scroll. Content is visible by default (no JS ⇒ no hiding)
+ * and the effect is skipped when IntersectionObserver is missing or the user
+ * prefers reduced motion.
+ */
+function Reveal({
+  children,
+  index = 0,
+  className,
+}: {
+  children: React.ReactNode;
+  index?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (!('IntersectionObserver' in window)) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
+    const vh = window.innerHeight || 800;
+    if (el.getBoundingClientRect().top < vh * 0.92) return; // already in view
+
+    setHidden(true);
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            setHidden(false);
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -6% 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-white/90 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-        <FlashMingoLogo size="sm" variant="dark" />
-        <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-          <a href="#features" className="hover:text-foreground transition-colors">Features</a>
-          <a href="#security" className="hover:text-foreground transition-colors">Security</a>
-          <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
-          <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
-        </nav>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/auth/login">Sign in</Link>
-          </Button>
-          <Button asChild size="sm">
-            <a href="#demo">Request Demo</a>
-          </Button>
-        </div>
-      </div>
-    </header>
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        transition: 'opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1)',
+        transitionDelay: `${Math.min(index, 6) * 70}ms`,
+        opacity: hidden ? 0 : 1,
+        transform: hidden ? 'translateY(20px)' : 'none',
+        willChange: hidden ? 'opacity, transform' : undefined,
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+/* ────────────────────────── Small helpers ────────────────────────────── */
+function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-3">
+    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.1em] text-[#B45309]">
       {children}
     </p>
   );
 }
 
-/* ─────────────────────────── Main page ──────────────────────────────── */
-export function LandingPage() {
+const iconTile = (tone: 'blue' | 'amber', size: string, radius: string) =>
+  cn('flex items-center justify-center', size, radius, tone === 'blue' ? 'bg-[#EAF1FE]' : 'bg-[#FBEFD8]');
+const iconStroke = (tone: 'blue' | 'amber') => (tone === 'blue' ? 'text-[#2563EB]' : 'text-[#D97706]');
+
+/* ────────────────────────── Hero flashcard ───────────────────────────── */
+function HeroFlashcard() {
   return (
-    <div className="min-h-screen bg-background font-sans text-foreground">
-      <NavBar />
+    <div className="flex flex-none basis-[380px] justify-center">
+      <div className="relative w-[340px]">
+        {/* deck stack behind */}
+        <div className="absolute left-4 right-[-16px] top-[14px] h-56 rounded-[20px] border border-[#E9E3D7] bg-[#F1ECE2]" />
+        <div className="absolute left-2 right-[-8px] top-[7px] h-56 rounded-[20px] border border-[#EDE7DB] bg-[#FBFAF7] shadow-[0_8px_20px_-12px_rgba(27,26,24,0.15)]" />
 
-      {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 pt-20 pb-24 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-1.5 text-xs font-medium text-muted-foreground mb-6 shadow-sm">
-          <Shield className="h-3.5 w-3.5 text-primary" />
-          FERPA-compliant · Google SSO · District-controlled
+        {/* flip card */}
+        <div className="relative animate-fm-float [perspective:1400px] motion-reduce:animate-none">
+          <div className="group relative h-56 w-full animate-fm-flip [transform-style:preserve-3d] hover:[animation-play-state:paused] motion-reduce:animate-none motion-reduce:[transform:none]">
+            {/* front */}
+            <div className="absolute inset-0 flex flex-col rounded-[20px] border border-[#E9E3D7] bg-white p-[22px] shadow-[0_20px_40px_-18px_rgba(27,26,24,0.28)] [backface-visibility:hidden]">
+              <div className="flex items-center justify-between">
+                <span className="rounded-md bg-[#FBEFD8] px-[9px] py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#B45309]">Biology</span>
+                <span className="text-xs font-medium text-[#A39E93]">Card 1 of 24</span>
+              </div>
+              <div className="flex flex-1 items-center">
+                <p className="font-display text-[23px] font-bold leading-[1.25] text-[#1B1A18]">What&apos;s the powerhouse of the cell?</p>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-[#A39E93]">
+                <RefreshCw className="h-3.5 w-3.5" />
+                Flips to reveal the answer
+              </div>
+            </div>
+            {/* back */}
+            <div className="absolute inset-0 flex flex-col rounded-[20px] border border-[#1E3A8A] bg-[#1E3A8A] p-[22px] text-white shadow-[0_20px_40px_-18px_rgba(30,58,138,0.45)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
+              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#FBBF24]">Answer</span>
+              <div className="flex flex-1 flex-col justify-center gap-2">
+                <p className="font-display text-[26px] font-bold leading-[1.2]">The mitochondria</p>
+                <p className="text-[13px] leading-[1.5] text-[#C7D2FE]">Generates most of the cell&apos;s energy through respiration (ATP).</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <h1 className="font-display text-5xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.1] mb-6">
-          Flashcard learning{' '}
-          <span className="text-primary">built for schools</span>
-        </h1>
-
-        <p className="mx-auto max-w-2xl text-lg text-muted-foreground leading-relaxed mb-10">
-          FlashMingo brings spaced repetition, AI deck generation, and classroom
-          management together in a privacy-first platform your district can trust.
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Button asChild size="lg">
-            <Link href="/auth/login">
-              <GraduationCap className="h-4 w-4" />
-              Sign in with Google
-            </Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <a href="#demo">
-              <Mail className="h-4 w-4" />
-              Request a demo
-            </a>
-          </Button>
+        {/* rating chips */}
+        <div className="mt-4 grid grid-cols-4 gap-2">
+          <span className="rounded-lg border border-[#FECACA] bg-white py-[7px] text-center text-xs font-semibold text-[#DC2626]">Again</span>
+          <span className="rounded-lg border border-[#FED7AA] bg-white py-[7px] text-center text-xs font-semibold text-[#EA580C]">Hard</span>
+          <span className="rounded-lg border border-[#BFDBFE] bg-white py-[7px] text-center text-xs font-semibold text-[#2563EB]">Good</span>
+          <span className="rounded-lg bg-[#0D9488] py-[7px] text-center text-xs font-semibold text-white">Easy</span>
         </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* Social proof */}
-        <div className="mt-12 flex items-center justify-center gap-6 text-sm text-muted-foreground flex-wrap">
-          <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-green-500" />Free for students & teachers</span>
-          <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-green-500" />No credit card required</span>
-          <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-green-500" />Google Workspace SSO</span>
+/* ────────────────────────────── Page ─────────────────────────────────── */
+export function LandingPage() {
+  const year = new Date().getFullYear();
+
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-[#FBFAF7] font-sans text-[#1B1A18]">
+      {/* ── Nav ─────────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-50 border-b border-[#E9E3D7] bg-[#FBFAF7]/85 backdrop-blur-[8px]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+          <FlashMingoLogo size="sm" variant="dark" />
+          <nav className="hidden items-center gap-6 text-sm text-[#6E6A62] md:flex">
+            <a href="#features" className="transition-colors hover:text-[#1B1A18]">Features</a>
+            <a href="#roles" className="transition-colors hover:text-[#1B1A18]">Who it&apos;s for</a>
+            <a href="#pricing" className="transition-colors hover:text-[#1B1A18]">Pricing</a>
+            <a href="#faq" className="transition-colors hover:text-[#1B1A18]">FAQ</a>
+          </nav>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" size="sm" className="h-[30px] hover:bg-[#F1ECE2]">
+              <Link href="/auth/login">Sign in</Link>
+            </Button>
+            <Button asChild size="sm" className="h-[30px] bg-[#2563EB] hover:bg-[#1D4ED8]">
+              <a href="#demo">Request demo</a>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Hero ────────────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden bg-[#FBFAF7]">
+        {/* notebook grid */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right,rgba(27,26,24,0.05) 1px,transparent 1px),linear-gradient(to bottom,rgba(27,26,24,0.05) 1px,transparent 1px)',
+            backgroundSize: '27px 27px',
+            WebkitMaskImage: 'radial-gradient(115% 82% at 50% 26%,#000 32%,transparent 82%)',
+            maskImage: 'radial-gradient(115% 82% at 50% 26%,#000 32%,transparent 82%)',
+          }}
+        />
+        {/* amber glow */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-[-6%] top-[4%] h-[440px] w-[540px]"
+          style={{ background: 'radial-gradient(46% 46% at 62% 42%,rgba(245,158,11,0.18),transparent 72%)' }}
+        />
+        <div className="relative z-[1] mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-14 px-6 pb-[88px] pt-[72px]">
+          <div className="max-w-[540px] flex-1 basis-[440px]">
+            <h1 className="mb-5 text-balance font-display text-[56px] font-extrabold leading-[1.05] tracking-[-0.03em] text-[#1B1A18]">
+              Flashcard learning built for{' '}
+              <span className="relative inline-block whitespace-nowrap">
+                <span className="relative z-[1]">schools</span>
+                <span
+                  aria-hidden
+                  className="absolute bottom-[7px] left-[-7px] right-[-7px] z-0 h-[38%] opacity-55"
+                  style={{
+                    background: 'linear-gradient(90deg,#FBBF24,#FCD34D)',
+                    transform: 'rotate(-1.4deg)',
+                    borderRadius: '5px 7px 4px 8px',
+                  }}
+                />
+              </span>
+            </h1>
+            <p className="mb-8 max-w-[460px] text-[19px] leading-[1.55] text-[#6E6A62]">
+              Study smarter. Remember longer.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button asChild className="h-11 rounded-[10px] bg-[#2563EB] px-[22px] text-[15px] hover:bg-[#1D4ED8]">
+                <Link href="/auth/login">
+                  <GraduationCap className="h-[18px] w-[18px]" />
+                  Sign in with Google
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-11 rounded-[10px] border-[#E0D9CB] bg-white px-[22px] text-[15px] text-[#1B1A18] hover:bg-[#F4F0E8]">
+                <a href="#demo">Request a demo</a>
+              </Button>
+            </div>
+          </div>
+          <HeroFlashcard />
         </div>
       </section>
 
-      {/* ── Features ──────────────────────────────────────────────────── */}
-      <section id="features" className="bg-muted/30 border-y border-border py-20">
+      {/* ── Features ────────────────────────────────────────────────────── */}
+      <section id="features" className="border-y border-[#E9E3D7] bg-[#F4F0E8] py-[76px]">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="text-center mb-12">
-            <SectionLabel>Features</SectionLabel>
-            <h2 className="font-display text-3xl font-bold tracking-tight text-foreground mb-3">
+          <Reveal className="mb-11 text-center">
+            <Eyebrow>Features</Eyebrow>
+            <h2 className="text-balance font-display text-[34px] font-bold tracking-[-0.025em] text-[#1B1A18]">
               Everything your school needs
             </h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              From student study tools to district admin controls — FlashMingo covers the full workflow.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {features.map(({ icon: Icon, title, desc, color, bg }) => (
-              <div key={title} className="rounded-xl border border-border bg-white p-5 shadow-card hover:shadow-card-hover transition-shadow">
-                <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg mb-4', bg)}>
-                  <Icon className={cn('h-4 w-4', color)} />
+          </Reveal>
+          <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
+            {features.map(({ icon: Icon, tone, title, desc }, i) => (
+              <Reveal key={title} index={i}>
+                <div className="h-full rounded-[16px] border border-[#E9E3D7] bg-white p-[22px] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-12px_rgba(27,26,24,0.16)]">
+                  <div className={cn(iconTile(tone, 'h-10 w-10', 'rounded-[11px]'), 'mb-4')}>
+                    <Icon className={cn('h-[18px] w-[18px]', iconStroke(tone))} />
+                  </div>
+                  <h3 className="mb-1.5 font-display text-[16px] font-bold text-[#1B1A18]">{title}</h3>
+                  <p className="text-sm leading-[1.55] text-[#6E6A62]">{desc}</p>
                 </div>
-                <h3 className="text-sm font-semibold text-foreground mb-1.5">{title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Security / Compliance ─────────────────────────────────────── */}
-      <section id="security" className="py-20">
+      {/* ── Who it's for ────────────────────────────────────────────────── */}
+      <section id="roles" className="py-[76px]">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <SectionLabel>Security &amp; Compliance</SectionLabel>
-              <h2 className="font-display text-3xl font-bold tracking-tight text-foreground mb-4">
-                Built with student privacy first
-              </h2>
-              <p className="text-muted-foreground leading-relaxed mb-8">
-                School data is sensitive. FlashMingo is designed from the ground up for
-                district IT requirements — not bolted on after launch.
-              </p>
-              <ul className="space-y-3">
-                {securityPoints.map((point) => (
-                  <li key={point} className="flex items-start gap-2.5 text-sm text-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0 mt-0.5" />
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-white p-6 shadow-card space-y-4">
-              {[
-                { icon: Lock,     title: 'Google SSO only',   desc: 'No passwords to manage or breach. School Google accounts are the only way in.' },
-                { icon: Shield,   title: 'FERPA compliant',   desc: 'Student data stays within your district. No advertising, no data brokering.' },
-                { icon: FileText, title: 'Audit log',         desc: 'Every admin and user action is logged with timestamps and user IDs.' },
-                { icon: Users,    title: 'Role-based access',  desc: 'Students, teachers, and admins each see only what they\'re allowed to see.' },
-              ].map(({ icon: Icon, title, desc }) => (
-                <div key={title} className="flex items-start gap-3 p-3 rounded-xl bg-muted/30">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white border border-border shadow-sm">
-                    <Icon className="h-4 w-4 text-primary" />
+          <Reveal className="mb-11 text-center">
+            <Eyebrow>Who it&apos;s for</Eyebrow>
+            <h2 className="text-balance font-display text-[34px] font-bold tracking-[-0.025em] text-[#1B1A18]">
+              One platform, three roles
+            </h2>
+          </Reveal>
+          <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
+            {audiences.map(({ icon: Icon, tone, title, intro, points }, i) => (
+              <Reveal key={title} index={i}>
+                <div className="h-full rounded-[18px] border border-[#E9E3D7] bg-white p-[26px] shadow-[0_1px_2px_rgba(27,26,24,0.03)]">
+                  <div className={cn(iconTile(tone, 'h-11 w-11', 'rounded-[12px]'), 'mb-[18px]')}>
+                    <Icon className={cn('h-5 w-5', iconStroke(tone))} />
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-                  </div>
+                  <h3 className="mb-2 font-display text-[19px] font-bold text-[#1B1A18]">{title}</h3>
+                  <p className="mb-[18px] text-sm leading-[1.55] text-[#6E6A62]">{intro}</p>
+                  <ul className="flex flex-col gap-2.5">
+                    {points.map((p) => (
+                      <li key={p} className="flex items-center gap-[9px] text-sm text-[#3B3A36]">
+                        <Check className={cn('h-[15px] w-[15px] shrink-0 [stroke-width:2.5]', iconStroke(tone))} />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              ))}
-            </div>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── Pricing ───────────────────────────────────────────────────── */}
-      <section id="pricing" className="bg-muted/30 border-y border-border py-20">
-        <div className="mx-auto max-w-4xl px-6">
-          <div className="text-center mb-12">
-            <SectionLabel>Pricing</SectionLabel>
-            <h2 className="font-display text-3xl font-bold tracking-tight text-foreground mb-3">
+      {/* ── Security & Compliance ───────────────────────────────────────── */}
+      <section id="security" className="border-y border-[#E9E3D7] bg-[#F4F0E8] py-[76px]">
+        <div className="mx-auto max-w-[1000px] px-6">
+          <Reveal className="mb-11 text-center">
+            <Eyebrow>Security &amp; Compliance</Eyebrow>
+            <h2 className="mb-3 text-balance font-display text-[34px] font-bold tracking-[-0.025em] text-[#1B1A18]">
+              Built with student privacy first
+            </h2>
+            <p className="mx-auto max-w-[520px] text-[#6E6A62]">
+              Designed for district IT from day one — not bolted on after launch.
+            </p>
+          </Reveal>
+          <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+            {securityPoints.map(({ icon: Icon, title, desc }, i) => (
+              <Reveal key={title} index={i}>
+                <div className="h-full rounded-[14px] border border-[#E9E3D7] bg-white p-5">
+                  <div className={cn(iconTile('blue', 'h-9 w-9', 'rounded-[9px]'), 'mb-3.5')}>
+                    <Icon className="h-[17px] w-[17px] text-[#2563EB]" />
+                  </div>
+                  <p className="mb-1 text-sm font-semibold text-[#1B1A18]">{title}</p>
+                  <p className="text-[13px] leading-[1.5] text-[#6E6A62]">{desc}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing ─────────────────────────────────────────────────────── */}
+      <section id="pricing" className="py-[76px]">
+        <div className="mx-auto max-w-[880px] px-6">
+          <Reveal className="mb-11 text-center">
+            <Eyebrow>Pricing</Eyebrow>
+            <h2 className="mb-3 text-balance font-display text-[34px] font-bold tracking-[-0.025em] text-[#1B1A18]">
               Simple, transparent pricing
             </h2>
-            <p className="text-muted-foreground">
-              Free for individuals. District-wide plans for schools that need admin controls.
+            <p className="text-[#6E6A62]">
+              Free for individuals. District plans for schools that need admin controls.
             </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {pricingTiers.map(({ name, price, period, desc, features: feats, cta, href, highlight }) => (
-              <div
-                key={name}
-                className={cn(
-                  'rounded-2xl border p-6 flex flex-col',
-                  highlight
-                    ? 'border-primary bg-primary/5 shadow-lg ring-1 ring-primary/20'
-                    : 'border-border bg-white shadow-card'
-                )}
-              >
-                {highlight && (
-                  <span className="mb-3 self-start rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-semibold text-white uppercase tracking-wide">
-                    Recommended
-                  </span>
-                )}
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{name}</p>
-                <div className="mt-2 mb-1">
-                  <span className="text-4xl font-bold text-foreground">{price}</span>
-                  <span className="text-sm text-muted-foreground ml-1">/{period}</span>
+          </Reveal>
+          <div className="grid gap-[22px] [grid-template-columns:repeat(auto-fit,minmax(340px,1fr))]">
+            {/* Free */}
+            <Reveal index={0} className="h-full">
+              <div className="flex h-full flex-col rounded-[18px] border border-[#E9E3D7] bg-white p-[26px]">
+                <p className="text-[13px] font-semibold uppercase tracking-[0.05em] text-[#6E6A62]">Free</p>
+                <div className="mb-1 mt-2">
+                  <span className="font-display text-[40px] font-extrabold text-[#1B1A18]">$0</span>
+                  <span className="ml-1.5 text-sm text-[#6E6A62]">forever</span>
                 </div>
-                <p className="text-sm text-muted-foreground mb-5">{desc}</p>
-                <ul className="space-y-2 flex-1 mb-6">
-                  {feats.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-foreground">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                <p className="mb-5 text-sm text-[#6E6A62]">For individual students and teachers.</p>
+                <ul className="mb-6 flex flex-1 flex-col gap-2.5">
+                  {freeFeatures.map((f) => (
+                    <li key={f} className="flex items-center gap-[9px] text-sm text-[#3B3A36]">
+                      <Check className="h-[15px] w-[15px] shrink-0 text-[#0D9488] [stroke-width:2.5]" />
                       {f}
                     </li>
                   ))}
                 </ul>
-                <Button asChild variant={highlight ? 'default' : 'outline'} className="w-full">
-                  <a href={href}>{cta}<ChevronRight className="h-3.5 w-3.5 ml-1" /></a>
+                <Button asChild variant="outline" className="h-[42px] w-full rounded-[10px] border-[#E0D9CB] bg-white text-[#1B1A18] hover:bg-[#F4F0E8]">
+                  <Link href="/auth/login">Get started free</Link>
                 </Button>
               </div>
-            ))}
+            </Reveal>
+            {/* District */}
+            <Reveal index={1} className="h-full">
+              <div className="flex h-full flex-col rounded-[18px] border-[1.5px] border-[#2563EB] bg-[#EAF1FE] p-[26px] shadow-[0_16px_40px_-18px_rgba(37,99,235,0.35)]">
+                <span className="mb-3 self-start rounded-full bg-[#F59E0B] px-[11px] py-[3px] text-[11px] font-bold uppercase tracking-[0.04em] text-white">
+                  Recommended
+                </span>
+                <p className="text-[13px] font-semibold uppercase tracking-[0.05em] text-[#6E6A62]">District</p>
+                <div className="mb-1 mt-2">
+                  <span className="font-display text-[40px] font-extrabold text-[#1B1A18]">Custom</span>
+                  <span className="ml-1.5 text-sm text-[#6E6A62]">per school year</span>
+                </div>
+                <p className="mb-5 text-sm text-[#6E6A62]">For districts that need admin controls and compliance.</p>
+                <ul className="mb-6 flex flex-1 flex-col gap-2.5">
+                  {districtFeatures.map((f) => (
+                    <li key={f} className="flex items-center gap-[9px] text-sm text-[#3B3A36]">
+                      <Check className="h-[15px] w-[15px] shrink-0 text-[#0D9488] [stroke-width:2.5]" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Button asChild className="h-[42px] w-full rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8]">
+                  <a href="#demo">Request a demo</a>
+                </Button>
+              </div>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* ── Request Demo ──────────────────────────────────────────────── */}
-      <section id="demo" className="py-20">
-        <div className="mx-auto max-w-2xl px-6 text-center">
-          <SectionLabel>Request Demo</SectionLabel>
-          <h2 className="font-display text-3xl font-bold tracking-tight text-foreground mb-3">
-            See FlashMingo in your district
-          </h2>
-          <p className="text-muted-foreground mb-8">
-            We&apos;ll walk you through admin setup, SSO configuration, and the compliance checklist.
-            Takes 30 minutes.
-          </p>
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-card space-y-3 text-left">
-            <input
-              type="text"
-              placeholder="Your name"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-            <input
-              type="email"
-              placeholder="School email address"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-            <input
-              type="text"
-              placeholder="School / district name"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-            <textarea
-              rows={3}
-              placeholder="Tell us about your use case (optional)"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-            />
-            <Button className="w-full" size="lg">
-              <Mail className="h-4 w-4" />
+      {/* ── Request a demo ──────────────────────────────────────────────── */}
+      <section id="demo" className="relative overflow-hidden border-t border-[#E9E3D7] bg-[#F4F0E8] py-[76px]">
+        <svg aria-hidden viewBox="0 0 32 32" fill="#F59E0B" className="pointer-events-none absolute left-[-70px] top-1/2 h-[380px] w-[380px] -translate-y-1/2 rotate-[-8deg] opacity-[0.06]">
+          <path d="M19 5L9 18h8L13 27l14-16h-9L19 5z" />
+        </svg>
+        <svg aria-hidden viewBox="0 0 32 32" fill="#F59E0B" className="pointer-events-none absolute bottom-[-56px] right-[-48px] h-[260px] w-[260px] rotate-12 opacity-[0.05]">
+          <path d="M19 5L9 18h8L13 27l14-16h-9L19 5z" />
+        </svg>
+        <div className="relative z-[1] mx-auto max-w-[660px] px-6 text-center">
+          <Reveal>
+            <Eyebrow>Request a demo</Eyebrow>
+            <h2 className="mb-3 text-balance font-display text-[34px] font-bold tracking-[-0.025em] text-[#1B1A18]">
+              See FlashMingo in your district
+            </h2>
+            <p className="mb-8 text-[#6E6A62]">
+              A 30-minute walkthrough of setup, SSO, and the compliance checklist.
+            </p>
+          </Reveal>
+          <div className="flex flex-col gap-3 rounded-[18px] border border-[#E9E3D7] bg-white p-6 text-left shadow-[0_1px_2px_rgba(27,26,24,0.03)]">
+            <input type="text" placeholder="Your name" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
+            <input type="email" placeholder="School email address" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
+            <input type="text" placeholder="School / district name" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
+            <textarea rows={3} placeholder="Tell us about your use case (optional)" className="w-full resize-none rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
+            <Button className="h-[46px] w-full rounded-[11px] bg-[#2563EB] text-[15px] hover:bg-[#1D4ED8]">
+              <Mail className="h-[18px] w-[18px]" />
               Request a demo
             </Button>
-            <p className="text-[11px] text-muted-foreground text-center">
-              No commitment required. We&apos;ll respond within one business day.
-            </p>
+            <p className="text-center text-[11px] text-[#A39E93]">No commitment. We&apos;ll respond within one business day.</p>
           </div>
         </div>
       </section>
 
-      {/* ── FAQ ───────────────────────────────────────────────────────── */}
-      <section id="faq" className="bg-muted/30 border-t border-border py-20">
-        <div className="mx-auto max-w-3xl px-6">
-          <div className="text-center mb-12">
-            <SectionLabel>FAQ</SectionLabel>
-            <h2 className="font-display text-3xl font-bold tracking-tight text-foreground">
+      {/* ── FAQ ─────────────────────────────────────────────────────────── */}
+      <section id="faq" className="border-t border-[#E9E3D7] py-[76px]">
+        <div className="mx-auto max-w-[720px] px-6">
+          <Reveal className="mb-10 text-center">
+            <Eyebrow>FAQ</Eyebrow>
+            <h2 className="font-display text-[34px] font-bold tracking-[-0.025em] text-[#1B1A18]">
               Common questions
             </h2>
-          </div>
-          <div className="space-y-4">
-            {faqs.map(({ q, a }) => (
-              <div key={q} className="rounded-xl border border-border bg-white p-5 shadow-card">
-                <p className="text-sm font-semibold text-foreground mb-1.5">{q}</p>
-                <p className="text-sm text-muted-foreground leading-relaxed">{a}</p>
-              </div>
+          </Reveal>
+          <div className="flex flex-col gap-3.5">
+            {faqs.map(({ q, a }, i) => (
+              <Reveal key={q} index={i}>
+                <div className="rounded-[14px] border border-[#E9E3D7] bg-white p-5">
+                  <p className="mb-1.5 text-[15px] font-semibold text-[#1B1A18]">{q}</p>
+                  <p className="text-sm leading-[1.55] text-[#6E6A62]">{a}</p>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Footer ────────────────────────────────────────────────────── */}
-      <footer className="border-t border-border bg-white py-8">
-        <div className="mx-auto max-w-6xl px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <FlashMingoLogo size="sm" variant="dark" />
-          </div>
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
+      <footer className="border-t border-[#E9E3D7] bg-white py-8">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 text-sm text-[#6E6A62]">
+          <FlashMingoLogo size="sm" variant="dark" />
           <div className="flex items-center gap-6">
-            <a href="#features"  className="hover:text-foreground transition-colors">Features</a>
-            <a href="#security"  className="hover:text-foreground transition-colors">Security</a>
-            <a href="#pricing"   className="hover:text-foreground transition-colors">Pricing</a>
-            <Link href="/auth/login" className="hover:text-foreground transition-colors">Sign in</Link>
+            <a href="#features" className="transition-colors hover:text-[#1B1A18]">Features</a>
+            <a href="#pricing" className="transition-colors hover:text-[#1B1A18]">Pricing</a>
+            <a href="#faq" className="transition-colors hover:text-[#1B1A18]">FAQ</a>
+            <Link href="/auth/login" className="transition-colors hover:text-[#1B1A18]">Sign in</Link>
           </div>
-          <p className="text-xs">© {new Date().getFullYear()} FlashMingo. FERPA compliant.</p>
+          <p className="text-xs">© {year} FlashMingo. FERPA compliant.</p>
         </div>
       </footer>
     </div>
