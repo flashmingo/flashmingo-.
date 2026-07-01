@@ -430,16 +430,18 @@ export function LandingPage() {
               A 30-minute walkthrough of setup, SSO, and the compliance checklist.
             </p>
           </Reveal>
-          <div className="flex flex-col gap-3 rounded-[18px] border border-[#E9E3D7] bg-white p-6 text-left shadow-[0_1px_2px_rgba(27,26,24,0.03)]">
-            <input type="text" placeholder="Your name" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
-            <input type="email" placeholder="School email address" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
-            <input type="text" placeholder="School / district name" className="w-full rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
-            <textarea rows={3} placeholder="Tell us about your use case (optional)" className="w-full resize-none rounded-[10px] border border-[#E0D9CB] bg-[#FBFAF7] px-[13px] py-[11px] text-sm focus:border-[#2563EB] focus:bg-white focus:outline-none" />
-            <Button className="h-[46px] w-full rounded-[11px] bg-[#2563EB] text-[15px] hover:bg-[#1D4ED8]">
-              <Mail className="h-[18px] w-[18px]" />
-              Request a demo
+          <div className="flex flex-col items-center gap-4 rounded-[18px] border border-[#E9E3D7] bg-white p-8 shadow-[0_1px_2px_rgba(27,26,24,0.03)]">
+            <p className="text-sm text-[#6E6A62] text-center">
+              Email us directly to schedule a 30-minute walkthrough of setup, SSO configuration,
+              and the FERPA compliance checklist.
+            </p>
+            <Button asChild className="h-[46px] rounded-[11px] bg-[#2563EB] px-8 text-[15px] hover:bg-[#1D4ED8]">
+              <a href="mailto:demo@flashmingo.org?subject=Demo Request&body=Hi, I'd like to schedule a demo for our district.">
+                <Mail className="h-[18px] w-[18px]" />
+                Email us to schedule
+              </a>
             </Button>
-            <p className="text-center text-[11px] text-[#A39E93]">No commitment. We&apos;ll respond within one business day.</p>
+            <p className="text-[11px] text-[#A39E93]">No commitment. We respond within one business day.</p>
           </div>
         </div>
       </section>
@@ -474,6 +476,8 @@ export function LandingPage() {
             <a href="#features" className="transition-colors hover:text-[#1B1A18]">Features</a>
             <a href="#pricing" className="transition-colors hover:text-[#1B1A18]">Pricing</a>
             <a href="#faq" className="transition-colors hover:text-[#1B1A18]">FAQ</a>
+            <Link href="/privacy" className="transition-colors hover:text-[#1B1A18]">Privacy</Link>
+            <Link href="/terms" className="transition-colors hover:text-[#1B1A18]">Terms</Link>
             <Link href="/auth/login" className="transition-colors hover:text-[#1B1A18]">Sign in</Link>
           </div>
           <p className="text-xs">© {year} FlashMingo. FERPA compliant.</p>

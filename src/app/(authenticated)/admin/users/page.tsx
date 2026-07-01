@@ -4,7 +4,7 @@ import { use, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Search, MoreHorizontal, CheckCircle2,
-  XCircle, UserCog, Shield, GraduationCap, User,
+  XCircle, Shield, GraduationCap, User, Trash2,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
@@ -32,9 +32,10 @@ const roleIcon: Record<string, React.ElementType> = {
   student: User, teacher: GraduationCap, administrator: Shield,
 };
 
-function UserRow({ user, onUpdate }: {
+function UserRow({ user, onUpdate, onDelete }: {
   user: AdminUser;
   onUpdate: (id: string, update: { account_status?: string; role?: string }) => void;
+  onDelete: (id: string, name: string) => void;
 }) {
   const Icon = roleIcon[user.role] ?? User;
   const initials = (user.full_name ?? 'U')
@@ -127,6 +128,16 @@ function UserRow({ user, onUpdate }: {
 
                 <div className="my-1 h-px bg-border" />
 
+                {/* FERPA: Delete all user data */}
+                <DropdownMenu.Item
+                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm cursor-pointer hover:bg-red-50 text-red-600 outline-none"
+                  onSelect={() => onDelete(user.id, user.full_name ?? 'this user')}
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete all data (FERPA)
+                </DropdownMenu.Item>
+
+                <div className="my-1 h-px bg-border" />
+
                 {/* Role changes */}
                 <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Change role
@@ -192,6 +203,21 @@ export default function AdminUsersPage({
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).error);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+  });
+
+  const handleDelete = (id: string, name: string) => {
+    if (!window.confirm(
+      `FERPA Data Deletion\n\nPermanently delete all data for "${name}"?\n\nThis cannot be undone. All decks, cards, study sessions, and progress will be erased.`
+    )) return;
+    deleteMutation.mutate(id);
+  };
 
   const filtered = users.filter((u) =>
     !search || (u.full_name ?? '').toLowerCase().includes(search.toLowerCase())
@@ -305,6 +331,7 @@ export default function AdminUsersPage({
                     key={user.id}
                     user={user}
                     onUpdate={(id, update) => updateMutation.mutate({ id, update })}
+                    onDelete={handleDelete}
                   />
                 ))}
               </tbody>

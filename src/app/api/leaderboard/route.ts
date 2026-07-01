@@ -21,7 +21,7 @@ export async function GET() {
   // Fetch opted-in users in the same district (or all if no district)
   let profileQuery = supabase
     .from('profiles')
-    .select('id, full_name, avatar_url, district_id')
+    .select('id, full_name, avatar_url')
     .eq('leaderboard_opt_in', true)
     .eq('account_status', 'approved');
 

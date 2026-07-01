@@ -3,20 +3,30 @@ import { createClient } from '@/lib/supabase/server';
 
 type Params = { params: Promise<{ cardId: string }> };
 
-export async function PATCH(request: NextRequest, { params }: Params) {
-  const { cardId } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  // Verify ownership via deck
+async function getCardWithOwnership(supabase: Awaited<ReturnType<typeof createClient>>, cardId: string, userId: string) {
   const { data: card } = await supabase
     .from('flashcards')
     .select('id, deck_id, decks!inner(owner_id)')
     .eq('id', cardId)
     .single();
 
+  if (!card) return { card: null, authorized: false };
+
+  const deck = Array.isArray(card.decks) ? card.decks[0] : card.decks;
+  const authorized = (deck as { owner_id: string } | null)?.owner_id === userId;
+
+  return { card, authorized };
+}
+
+export async function PATCH(request: NextRequest, { params }: Params) {
+  const { cardId } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { card, authorized } = await getCardWithOwnership(supabase, cardId, user.id);
   if (!card) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!authorized) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const body = await request.json();
   const updates: { front_text?: string; back_text?: string; sort_order?: number } = {};
@@ -48,6 +58,10 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { card, authorized } = await getCardWithOwnership(supabase, cardId, user.id);
+  if (!card) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!authorized) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { error } = await supabase
     .from('flashcards')
