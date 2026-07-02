@@ -12,6 +12,11 @@ export async function GET(request: NextRequest) {
   // Cap at 50 chars to prevent abuse
   const query = q.slice(0, 50);
 
+  // Sanitized variant for the raw PostgREST `.or()` filter string below.
+  // Strips characters with structural meaning in PostgREST filters
+  // (comma, parens, dot, colon, asterisk, backslash) to prevent filter injection.
+  const orSafe = query.replace(/[,().:*\\]/g, ' ').trim();
+
   // Run deck and card search in parallel
   const [decksResult, cardsResult] = await Promise.all([
     supabase
@@ -48,7 +53,7 @@ export async function GET(request: NextRequest) {
       .from('flashcards')
       .select('id, deck_id, front_text, back_text, decks!inner(id, name, owner_id)')
       .eq('decks.owner_id', user.id)
-      .or(`front_text.ilike.%${query}%,back_text.ilike.%${query}%`)
+      .or(`front_text.ilike.%${orSafe}%,back_text.ilike.%${orSafe}%`)
       .limit(12);
     cards = data ?? [];
   }

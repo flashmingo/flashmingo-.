@@ -39,6 +39,15 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   const deck_id = request.nextUrl.searchParams.get('deck_id') ?? '';
   if (!deck_id) return NextResponse.json({ error: 'deck_id is required' }, { status: 400 });
 
+  // Verify teacher owns classroom (RLS also enforces this; explicit check for consistency with POST)
+  const { data: classroom } = await supabase
+    .from('classrooms')
+    .select('id')
+    .eq('id', classroomId)
+    .eq('teacher_id', user.id)
+    .single();
+  if (!classroom) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
   const { error } = await supabase
     .from('classroom_deck_shares')
     .delete()
