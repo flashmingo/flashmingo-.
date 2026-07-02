@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
-  Brain, Sparkles, Users, Globe, LineChart, ShieldCheck,
+  Brain, Sparkles, Users, LineChart, ShieldCheck,
   GraduationCap, Lock, FileText, Mail, Check, ArrowRight,
-  Plus, Minus, ShieldQuestion,
+  Plus, Minus, ShieldQuestion, RotateCcw, CheckCircle2,
 } from 'lucide-react';
 import { FlashMingoLogo } from '@/components/brand/FlashMingoLogo';
 import { Button } from '@/components/ui/Button';
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 
 /* ────────────────────────────── Content ──────────────────────────────── */
 const trustBadges = [
-  'FERPA', 'COPPA', 'Google for Education', 'Microsoft Entra', 'ClassLink', 'Clever', 'SOC 2',
+  'FERPA', 'COPPA', 'Google for Education', 'Microsoft Entra', 'ClassLink', 'Clever',
 ];
 
 const narrative = [
@@ -277,54 +277,160 @@ function Eyebrow({ children, tone = 'blue' }: { children: React.ReactNode; tone?
 const toneTile = (tone: 'blue' | 'teal') =>
   tone === 'blue' ? 'bg-[#1E40AF]/8 text-[#1E40AF]' : 'bg-[#0D9488]/10 text-[#0D9488]';
 
-/* ────────────────────────── Hero product preview ─────────────────────── */
-function HeroCard() {
-  return (
-    <div className="relative w-[360px] max-w-full">
-      {/* soft ambient shadow */}
-      <div aria-hidden className="absolute inset-x-6 top-8 h-64 rounded-[28px] bg-[#1E40AF]/10 blur-2xl" />
-      {/* deck stack */}
-      <div aria-hidden className="absolute left-5 right-[-14px] top-3 h-64 rounded-[22px] border border-slate-200/80 bg-white/70" />
-      <div aria-hidden className="absolute left-2.5 right-[-6px] top-1.5 h-64 rounded-[22px] border border-slate-200 bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.25)]" />
+/* ────────────────────────── Hero product demo ────────────────────────── */
+/** A real, playable review session — flip, rate, watch scheduling happen. */
+const demoCards = [
+  { subject: 'Biology',  tone: 'teal' as const, q: 'What is the powerhouse of the cell?', a: 'The mitochondria', detail: 'Generates the cell’s chemical energy (ATP) through respiration.' },
+  { subject: 'Spanish',  tone: 'blue' as const, q: '¿Cómo se dice “library”?', a: 'La biblioteca', detail: '“Librería” means bookstore — a classic false friend.' },
+  { subject: 'History',  tone: 'teal' as const, q: 'In what year was the U.S. Constitution signed?', a: '1787', detail: 'September 17, 1787, in Philadelphia.' },
+];
 
-      <div className="relative animate-fm-float [perspective:1600px] motion-reduce:animate-none">
-        <div className="group relative h-64 w-full animate-fm-flip [transform-style:preserve-3d] hover:[animation-play-state:paused] motion-reduce:animate-none motion-reduce:[transform:none]">
-          {/* front */}
-          <div className="absolute inset-0 flex flex-col rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_28px_60px_-28px_rgba(15,23,42,0.32)] [backface-visibility:hidden]">
-            <div className="flex items-center justify-between">
-              <span className="rounded-md bg-[#0D9488]/10 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.1em] text-[#0D9488]">Biology</span>
-              <span className="text-xs font-medium text-slate-400">Card 1 · 24</span>
-            </div>
-            <div className="flex flex-1 items-center">
-              <p className="font-display text-[24px] font-bold leading-[1.22] tracking-[-0.02em] text-slate-900">
-                What is the powerhouse of the cell?
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-fm-pulse-ring rounded-full bg-[#1E40AF]/50" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#1E40AF]" />
+const ratings = [
+  { label: 'Again', interval: '10 min',  cls: 'text-red-600 border-red-200 hover:bg-red-50' },
+  { label: 'Hard',  interval: '1 day',   cls: 'text-orange-600 border-orange-200 hover:bg-orange-50' },
+  { label: 'Good',  interval: '3 days',  cls: 'text-[#1E40AF] border-blue-200 hover:bg-blue-50' },
+  { label: 'Easy',  interval: '6 days',  cls: 'text-white bg-[#0D9488] border-[#0D9488] hover:bg-[#0B857A]' },
+];
+
+function HeroCard() {
+  const [idx, setIdx] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [done, setDone] = useState(false);
+  const [chip, setChip] = useState<{ text: string; id: number } | null>(null);
+  const tiltRef = useRef<HTMLDivElement>(null);
+
+  const card = demoCards[idx];
+
+  /* subtle 3D cursor tilt */
+  const onTilt = useCallback((e: React.MouseEvent) => {
+    const el = tiltRef.current; if (!el) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const r = el.getBoundingClientRect();
+    const rx = ((e.clientY - r.top) / r.height - 0.5) * -7;
+    const ry = ((e.clientX - r.left) / r.width - 0.5) * 9;
+    el.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+  }, []);
+  const resetTilt = useCallback(() => {
+    if (tiltRef.current) tiltRef.current.style.transform = 'rotateX(0deg) rotateY(0deg)';
+  }, []);
+
+  const rate = (interval: string) => {
+    setChip({ text: `Next review · ${interval}`, id: Date.now() });
+    setFlipped(false);
+    window.setTimeout(() => {
+      if (idx + 1 >= demoCards.length) setDone(true);
+      else setIdx((i) => i + 1);
+    }, 380);
+    window.setTimeout(() => setChip(null), 1900);
+  };
+
+  const restart = () => { setDone(false); setIdx(0); setFlipped(false); setChip(null); };
+
+  return (
+    <div className="relative w-[370px] max-w-full select-none">
+      {/* ambient glow + deck stack */}
+      <div aria-hidden className="absolute inset-x-6 top-10 h-64 rounded-[28px] bg-[#1E40AF]/10 blur-2xl" />
+      <div aria-hidden className="absolute left-5 right-[-14px] top-[22px] h-64 rounded-[22px] border border-slate-200/80 bg-white/70" />
+      <div aria-hidden className="absolute left-2.5 right-[-6px] top-[13px] h-64 rounded-[22px] border border-slate-200 bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.25)]" />
+
+      {/* progress dots */}
+      <div className="relative z-[2] mb-3 flex items-center justify-between px-1">
+        <div className="flex items-center gap-1.5">
+          {demoCards.map((_, i) => (
+            <span key={i} className={cn(
+              'h-1.5 rounded-full transition-all duration-500',
+              done || i < idx ? 'w-5 bg-[#0D9488]' : i === idx ? 'w-5 bg-[#1E40AF]' : 'w-1.5 bg-slate-200',
+            )} />
+          ))}
+        </div>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+          Live demo
+        </span>
+      </div>
+
+      {/* scheduling chip */}
+      {chip && (
+        <div key={chip.id} className="pointer-events-none absolute -top-8 right-0 z-[3] animate-fade-in-up">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-lg">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#5EEAD4]" />
+            {chip.text}
+          </span>
+        </div>
+      )}
+
+      {/* tilt layer */}
+      <div className="relative [perspective:1600px]" onMouseMove={onTilt} onMouseLeave={resetTilt}>
+        <div ref={tiltRef} style={{ transition: 'transform .3s cubic-bezier(.16,1,.3,1)', transformStyle: 'preserve-3d' }}>
+          {done ? (
+            /* session complete */
+            <div className="flex h-64 w-full flex-col items-center justify-center gap-3 rounded-[22px] border border-slate-200 bg-white p-6 text-center shadow-[0_28px_60px_-28px_rgba(15,23,42,0.32)]" style={{ animation: 'scale-in .35s cubic-bezier(.16,1,.3,1)' }}>
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0D9488]/10">
+                <CheckCircle2 className="h-6 w-6 text-[#0D9488]" />
               </span>
-              Tap to reveal the answer
+              <p className="font-display text-[21px] font-bold tracking-[-0.02em] text-slate-900">Session complete</p>
+              <p className="max-w-[240px] text-[13px] leading-[1.5] text-slate-500">
+                Every card returns right before you&apos;d forget it. That&apos;s the whole trick.
+              </p>
+              <button onClick={restart} className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#1E40AF] transition-colors hover:text-[#1B3A9E]">
+                <RotateCcw className="h-3.5 w-3.5" /> Study again
+              </button>
             </div>
-          </div>
-          {/* back */}
-          <div className="absolute inset-0 flex flex-col rounded-[22px] border border-[#1E40AF] bg-[#1E40AF] p-6 text-white shadow-[0_28px_60px_-24px_rgba(30,64,175,0.55)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
-            <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[#5EEAD4]">Answer</span>
-            <div className="flex flex-1 flex-col justify-center gap-2">
-              <p className="font-display text-[27px] font-bold leading-[1.15] tracking-[-0.02em]">The mitochondria</p>
-              <p className="text-[13px] leading-[1.55] text-white/70">Generates most of the cell&apos;s chemical energy (ATP) through respiration.</p>
-            </div>
-          </div>
+          ) : (
+            /* flip card */
+            <button
+              type="button"
+              onClick={() => setFlipped((f) => !f)}
+              aria-label={flipped ? 'Show question' : 'Reveal answer'}
+              className="relative block h-64 w-full cursor-pointer text-left [transform-style:preserve-3d] focus-visible:outline-none"
+              style={{ transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)', transition: 'transform .65s cubic-bezier(.16,1,.3,1)' }}
+            >
+              {/* front */}
+              <div key={`f-${idx}`} className="absolute inset-0 flex flex-col rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_28px_60px_-28px_rgba(15,23,42,0.32)] [backface-visibility:hidden]" style={{ animation: 'scale-in .4s cubic-bezier(.16,1,.3,1)' }}>
+                <div className="flex items-center justify-between">
+                  <span className={cn('rounded-md px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.1em]', card.tone === 'teal' ? 'bg-[#0D9488]/10 text-[#0D9488]' : 'bg-[#1E40AF]/8 text-[#1E40AF]')}>{card.subject}</span>
+                  <span className="text-xs font-medium text-slate-400">Card {idx + 1} · {demoCards.length}</span>
+                </div>
+                <div className="flex flex-1 items-center">
+                  <p className="font-display text-[23px] font-bold leading-[1.22] tracking-[-0.02em] text-slate-900">{card.q}</p>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-fm-pulse-ring rounded-full bg-[#1E40AF]/50" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#1E40AF]" />
+                  </span>
+                  Click to reveal the answer
+                </div>
+              </div>
+              {/* back */}
+              <div className="absolute inset-0 flex flex-col rounded-[22px] border border-[#1E40AF] bg-[#1E40AF] p-6 text-white shadow-[0_28px_60px_-24px_rgba(30,64,175,0.55)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[#5EEAD4]">Answer</span>
+                <div className="flex flex-1 flex-col justify-center gap-2">
+                  <p className="font-display text-[26px] font-bold leading-[1.15] tracking-[-0.02em]">{card.a}</p>
+                  <p className="text-[13px] leading-[1.55] text-white/70">{card.detail}</p>
+                </div>
+                <p className="text-[11.5px] text-white/50">How well did you know it?</p>
+              </div>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* rating row */}
-      <div className="mt-4 grid grid-cols-4 gap-2">
-        {[['Again', 'text-red-600 border-red-200'], ['Hard', 'text-orange-600 border-orange-200'], ['Good', 'text-[#1E40AF] border-blue-200'], ['Easy', 'text-white bg-[#0D9488] border-[#0D9488]']].map(([label, cls]) => (
-          <span key={label} className={cn('rounded-lg border bg-white py-2 text-center text-xs font-semibold', cls)}>{label}</span>
+      {/* rating row — live buttons */}
+      <div className={cn('mt-4 grid grid-cols-4 gap-2 transition-all duration-300', (!flipped || done) && 'pointer-events-none opacity-40')}>
+        {ratings.map(({ label, interval, cls }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => rate(interval)}
+            className={cn('rounded-lg border bg-white py-2 text-center text-xs font-semibold transition-all duration-150 active:scale-95', cls)}
+          >
+            {label}
+          </button>
         ))}
       </div>
+      <p className="mt-3 text-center text-[11.5px] text-slate-400">
+        This isn&apos;t a mockup — flip the card and rate yourself.
+      </p>
     </div>
   );
 }
@@ -400,6 +506,93 @@ function MemoryDiagram() {
         );
       })}
     </svg>
+  );
+}
+
+/* ───────────────────────── AI forge live demo ────────────────────────── */
+const forgeTopics = [
+  {
+    prompt: 'Photosynthesis — 8th grade',
+    tag: 'Biology',
+    cards: ['What are the two stages of photosynthesis?', 'Where does the Calvin cycle take place?', 'Which gas do plants absorb from the air?', 'Chlorophyll absorbs which colors of light?'],
+  },
+  {
+    prompt: 'The French Revolution',
+    tag: 'History',
+    cards: ['What happened on July 14, 1789?', 'Who was the last king of France?', 'What was the Reign of Terror?', 'Who made up the Third Estate?'],
+  },
+  {
+    prompt: 'Spanish irregular verbs',
+    tag: 'Spanish',
+    cards: ['Conjugate “ser” in the yo form', '“Ir” in the preterite — ellos', 'What does “tener que” mean?', 'Conjugate “estar” — nosotros'],
+  },
+];
+
+function AiForge() {
+  const [tIdx, setTIdx] = useState(0);
+  const [typed, setTyped] = useState('');
+  const [showCards, setShowCards] = useState(false);
+  const topic = forgeTopics[tIdx];
+
+  useEffect(() => {
+    let alive = true;
+    const timers: number[] = [];
+    setTyped('');
+    setShowCards(false);
+    let i = 0;
+    const type = window.setInterval(() => {
+      if (!alive) return;
+      i++;
+      setTyped(topic.prompt.slice(0, i));
+      if (i >= topic.prompt.length) {
+        window.clearInterval(type);
+        timers.push(window.setTimeout(() => { if (alive) setShowCards(true); }, 420));
+        timers.push(window.setTimeout(() => { if (alive) setTIdx((x) => (x + 1) % forgeTopics.length); }, 4600));
+      }
+    }, 52);
+    return () => { alive = false; window.clearInterval(type); timers.forEach(window.clearTimeout); };
+  }, [tIdx, topic.prompt]);
+
+  return (
+    <div className="relative">
+      {/* input mock */}
+      <div className="relative z-[1] flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.35)]">
+        <span className={cn(
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E40AF] to-[#0D9488] text-white transition-transform duration-500',
+          showCards && 'scale-110',
+        )}>
+          <Sparkles className="h-4 w-4" />
+        </span>
+        <p className="flex-1 truncate font-mono text-[14.5px] text-slate-800">
+          {typed}
+          <span className="ml-0.5 inline-block h-[1.1em] w-[2px] translate-y-[3px] animate-pulse bg-[#1E40AF]" />
+        </p>
+        <span className={cn(
+          'shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all duration-300',
+          showCards ? 'bg-[#0D9488]/10 text-[#0D9488]' : 'bg-slate-100 text-slate-400',
+        )}>
+          {showCards ? '✓ 24 cards' : 'Generating…'}
+        </span>
+      </div>
+
+      {/* generated cards */}
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {topic.cards.map((q, i) => (
+          <div
+            key={`${tIdx}-${i}`}
+            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+            style={{
+              opacity: showCards ? 1 : 0,
+              transform: showCards ? 'none' : 'translateY(14px) scale(.97)',
+              transition: `opacity .5s cubic-bezier(.16,1,.3,1) ${i * 110}ms, transform .5s cubic-bezier(.16,1,.3,1) ${i * 110}ms`,
+            }}
+          >
+            <span className="mb-2 inline-block rounded bg-[#1E40AF]/8 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#1E40AF]">{topic.tag}</span>
+            <p className="text-[13.5px] font-medium leading-[1.45] text-slate-800">{q}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -534,13 +727,23 @@ export function LandingPage() {
                 <span className="text-[13px] font-medium text-slate-600">AI deck generation, now for every teacher</span>
               </div>
             </Reveal>
-            <Reveal index={1}>
-              <h1 className="max-w-[560px] text-balance font-display text-[clamp(2.6rem,5.4vw,4rem)] font-extrabold leading-[1.02] tracking-[-0.035em] text-slate-900">
-                The flashcard platform
-                <br className="hidden sm:block" /> schools can{' '}
-                <span className="bg-gradient-to-r from-[#1E40AF] to-[#0D9488] bg-clip-text text-transparent">trust</span>.
-              </h1>
-            </Reveal>
+            <h1 className="max-w-[560px] text-balance font-display text-[clamp(2.6rem,5.4vw,4rem)] font-extrabold leading-[1.02] tracking-[-0.035em] text-slate-900">
+              {['The', 'flashcard', 'platform'].map((w, i) => (
+                <span key={w} className="inline-block" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) ${i * 90}ms both` }}>
+                  {w}&nbsp;
+                </span>
+              ))}
+              <br className="hidden sm:block" />
+              {['schools', 'can'].map((w, i) => (
+                <span key={w} className="inline-block" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) ${(i + 3) * 90}ms both` }}>
+                  {w}&nbsp;
+                </span>
+              ))}
+              <span className="inline-block bg-gradient-to-r from-[#1E40AF] to-[#0D9488] bg-clip-text text-transparent" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) 450ms both` }}>
+                trust
+              </span>
+              <span className="inline-block" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) 500ms both` }}>.</span>
+            </h1>
             <Reveal index={2}>
               <p className="mt-6 max-w-[440px] text-[18px] leading-[1.6] text-slate-500">
                 Spaced repetition, AI-built decks, and district-grade controls — in one calm, privacy-first platform for K–12.
@@ -594,23 +797,32 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ── Stats ─────────────────────────────────────────────────────── */}
+      {/* ── The science ───────────────────────────────────────────────── */}
       <section className="mx-auto max-w-6xl px-6 py-20">
+        <Reveal className="mb-10">
+          <Eyebrow>The science</Eyebrow>
+          <h2 className="max-w-xl text-balance font-display text-[clamp(1.6rem,2.8vw,2.1rem)] font-bold leading-[1.15] tracking-[-0.03em] text-slate-900">
+            Flashcards aren&apos;t a trend. They&apos;re 140 years of memory research.
+          </h2>
+        </Reveal>
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           {[
-            { v: 92, s: '%', l: 'Recall after 30 days' },
-            { v: 40, s: 'k+', l: 'Cards reviewed daily' },
-            { v: 3, s: '×', l: 'Faster deck creation' },
-            { v: 100, s: '%', l: 'District-scoped data' },
+            { n: <>1885</>, l: 'Ebbinghaus maps the forgetting curve — the science FlashMingo runs on' },
+            { n: <><Counter to={70} suffix="%" /></>, l: 'of new material is forgotten within 24 hours without review' },
+            { n: <>2×</>, l: 'better long-term retention from spaced practice vs. cramming' },
+            { n: <><Counter to={50} suffix="%+" /></>, l: 'stronger recall from active testing vs. re-reading notes' },
           ].map((stat, i) => (
-            <Reveal key={stat.l} index={i} className="text-center md:text-left">
-              <div className="font-display text-[44px] font-extrabold tracking-[-0.03em] text-slate-900">
-                <Counter to={stat.v} suffix={stat.s} />
-              </div>
-              <p className="mt-1 text-[13.5px] text-slate-500">{stat.l}</p>
+            <Reveal key={i} index={i} className="text-center md:text-left">
+              <div className="font-display text-[44px] font-extrabold tracking-[-0.03em] text-slate-900">{stat.n}</div>
+              <p className="mt-1 text-[13.5px] leading-[1.5] text-slate-500">{stat.l}</p>
             </Reveal>
           ))}
         </div>
+        <Reveal index={4}>
+          <p className="mt-10 text-[11.5px] text-slate-400">
+            Ebbinghaus (1885) · Cepeda et&nbsp;al., Psychological Bulletin (2006) · Roediger &amp; Karpicke, Psychological Science (2006)
+          </p>
+        </Reveal>
       </section>
 
       {/* ── Why FlashMingo — narrative ────────────────────────────────── */}
@@ -641,6 +853,43 @@ export function LandingPage() {
               </Reveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── AI forge — decks build themselves ─────────────────────────── */}
+      <section className="relative overflow-hidden py-24">
+        <div aria-hidden className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: 'radial-gradient(circle at center, rgba(15,23,42,0.04) 1px, transparent 1px)',
+            backgroundSize: '22px 22px',
+            WebkitMaskImage: 'radial-gradient(90% 90% at 50% 50%, #000 40%, transparent 80%)',
+            maskImage: 'radial-gradient(90% 90% at 50% 50%, #000 40%, transparent 80%)',
+          }}
+        />
+        <div className="relative mx-auto grid max-w-6xl grid-cols-1 items-center gap-14 px-6 lg:grid-cols-[0.85fr_1.15fr]">
+          <Reveal>
+            <Eyebrow tone="teal">AI deck generation</Eyebrow>
+            <h2 className="mb-5 text-balance font-display text-[clamp(1.9rem,3.4vw,2.6rem)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900">
+              Type a topic.
+              <br />Watch the deck build itself.
+            </h2>
+            <p className="max-w-sm text-[15px] leading-[1.65] text-slate-500">
+              Teachers describe what the class is studying — FlashMingo drafts a complete, structured deck in seconds. Edit anything, then publish to your classroom or the district library.
+            </p>
+            <ul className="mt-7 flex flex-col gap-3">
+              {['Age- and grade-appropriate wording', 'Every card fully editable before publishing', 'Free for individual teachers'].map((t) => (
+                <li key={t} className="flex items-center gap-2.5 text-[14px] text-slate-700">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0D9488]/10">
+                    <Check className="h-3 w-3 text-[#0D9488] [stroke-width:3]" />
+                  </span>
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+          <Reveal index={1}>
+            <AiForge />
+          </Reveal>
         </div>
       </section>
 
@@ -737,12 +986,12 @@ export function LandingPage() {
             </p>
             <div className="mt-8 flex gap-8">
               <div>
-                <p className="font-display text-3xl font-extrabold tracking-tight text-white"><Counter to={92} suffix="%" /></p>
-                <p className="mt-1 text-[13px] text-slate-400">30-day recall</p>
+                <p className="font-display text-3xl font-extrabold tracking-tight text-white">24 hrs</p>
+                <p className="mt-1 text-[13px] text-slate-400">When most forgetting happens</p>
               </div>
               <div>
                 <p className="font-display text-3xl font-extrabold tracking-tight text-white">SM-2</p>
-                <p className="mt-1 text-[13px] text-slate-400">Proven algorithm</p>
+                <p className="mt-1 text-[13px] text-slate-400">The algorithm behind Anki</p>
               </div>
             </div>
           </Reveal>
