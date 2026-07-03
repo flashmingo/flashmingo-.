@@ -198,42 +198,39 @@ function ScrollProgress() {
 }
 
 /**
- * Minimal custom cursor: a single eased dot with a soft glow.
- * Grows ~1.3x and brightens over interactive elements. Desktop only.
+ * Hover halo: the native cursor stays visible. When hovering an
+ * interactive element, a soft ring fades in and expands around the
+ * cursor, trailing it with a light lerp. Desktop only.
  */
 function CustomCursor() {
-  const dotRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
+  const haloRef = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const dot = dotRef.current, inner = innerRef.current;
-    if (!dot || !inner) return;
+    const halo = haloRef.current, ring = ringRef.current;
+    if (!halo || !ring) return;
 
-    let x = -100, y = -100, dx = -100, dy = -100;
+    let x = -100, y = -100, hx = -100, hy = -100;
     let raf = 0;
 
     const setActive = (on: boolean) => {
-      inner.style.transform = `translate(-50%, -50%) scale(${on ? 1.3 : 1})`;
-      inner.style.backgroundColor = on ? '#2563EB' : '#1E40AF';
-      inner.style.boxShadow = on
-        ? '0 0 16px rgba(37,99,235,0.6)'
-        : '0 0 10px rgba(30,64,175,0.4)';
+      ring.style.opacity = on ? '1' : '0';
+      ring.style.transform = `translate(-50%, -50%) scale(${on ? 1 : 0.5})`;
     };
     setActive(false);
 
     const move = (e: MouseEvent) => {
       x = e.clientX; y = e.clientY;
-      dot.style.opacity = '1';
       const t = e.target as HTMLElement;
       setActive(!!t.closest?.('a, button, [role="button"], input, textarea, select, label'));
     };
     const loop = () => {
-      dx += (x - dx) * 0.35;
-      dy += (y - dy) * 0.35;
-      dot.style.transform = `translate(${dx}px, ${dy}px)`;
+      hx += (x - hx) * 0.3;
+      hy += (y - hy) * 0.3;
+      halo.style.transform = `translate(${hx}px, ${hy}px)`;
       raf = requestAnimationFrame(loop);
     };
-    const leave = () => { dot.style.opacity = '0'; };
+    const leave = () => setActive(false);
 
     window.addEventListener('mousemove', move, { passive: true });
     document.documentElement.addEventListener('mouseleave', leave);
@@ -246,11 +243,18 @@ function CustomCursor() {
   }, []);
 
   return (
-    <div ref={dotRef} className="pointer-events-none fixed left-0 top-0 z-[99] opacity-0 transition-opacity duration-200" aria-hidden>
+    <div ref={haloRef} className="pointer-events-none fixed left-0 top-0 z-[99]" aria-hidden>
       <div
-        ref={innerRef}
-        className="h-2 w-2 rounded-full"
-        style={{ transition: 'transform .2s ease-out, background-color .2s ease-out, box-shadow .2s ease-out' }}
+        ref={ringRef}
+        className="h-10 w-10 rounded-full"
+        style={{
+          border: '1.5px solid rgba(37,99,235,0.45)',
+          backgroundColor: 'rgba(37,99,235,0.06)',
+          boxShadow: '0 0 18px rgba(37,99,235,0.18)',
+          opacity: 0,
+          transform: 'translate(-50%, -50%) scale(0.5)',
+          transition: 'opacity .22s ease-out, transform .22s cubic-bezier(.16,1,.3,1)',
+        }}
       />
     </div>
   );
@@ -789,7 +793,6 @@ export function LandingPage() {
     <div
       className={cn(
         'min-h-screen overflow-x-hidden bg-white font-sans text-slate-900 antialiased',
-        cursorOn && 'cursor-none [&_*]:!cursor-none',
       )}
       onMouseMove={(e) => {
         const t = e.currentTarget;
