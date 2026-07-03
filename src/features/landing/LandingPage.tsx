@@ -123,10 +123,10 @@ function Reveal({
       ref={ref}
       className={className}
       style={{
-        transition: 'opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1)',
-        transitionDelay: `${Math.min(index, 8) * 80}ms`,
+        transition: 'opacity .45s cubic-bezier(.16,1,.3,1), transform .45s cubic-bezier(.16,1,.3,1)',
+        transitionDelay: `${Math.min(index, 8) * 60}ms`,
         opacity: shown ? 1 : 0,
-        transform: shown ? 'none' : 'translateY(22px)',
+        transform: shown ? 'none' : 'translateY(14px)',
         willChange: shown ? undefined : 'opacity, transform',
       }}
     >
@@ -137,7 +137,7 @@ function Reveal({
 
 
 /** Subtle magnetic pull toward the cursor. */
-function Magnetic({ children, className, strength = 0.35 }: {
+function Magnetic({ children, className, strength = 0.15 }: {
   children: React.ReactNode; className?: string; strength?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -157,7 +157,7 @@ function Magnetic({ children, className, strength = 0.35 }: {
       onMouseMove={onMove}
       onMouseLeave={reset}
       className={className}
-      style={{ transition: 'transform .35s cubic-bezier(.16,1,.3,1)', display: 'inline-block' }}
+      style={{ transition: 'transform .25s cubic-bezier(.16,1,.3,1)', display: 'inline-block' }}
     >
       {children}
     </div>
@@ -198,76 +198,61 @@ function ScrollProgress() {
 }
 
 /**
- * High-tech custom cursor: an instant dot plus a spring-lagged ring that
- * expands and tints over interactive elements, with a press pulse.
- * Renders nothing on touch devices or when reduced motion is preferred.
+ * Minimal custom cursor: a single eased dot with a soft glow.
+ * Grows ~1.3x and brightens over interactive elements. Desktop only.
  */
 function CustomCursor() {
   const dotRef = useRef<HTMLDivElement>(null);
-  const ringRef = useRef<HTMLDivElement>(null);
-  const ringInnerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const dot = dotRef.current, ring = ringRef.current, inner = ringInnerRef.current;
-    if (!dot || !ring || !inner) return;
+    const dot = dotRef.current, inner = innerRef.current;
+    if (!dot || !inner) return;
 
-    let x = -100, y = -100, rx = -100, ry = -100;
+    let x = -100, y = -100, dx = -100, dy = -100;
     let raf = 0;
+
+    const setActive = (on: boolean) => {
+      inner.style.transform = `translate(-50%, -50%) scale(${on ? 1.3 : 1})`;
+      inner.style.backgroundColor = on ? '#2563EB' : '#1E40AF';
+      inner.style.boxShadow = on
+        ? '0 0 16px rgba(37,99,235,0.6)'
+        : '0 0 10px rgba(30,64,175,0.4)';
+    };
+    setActive(false);
 
     const move = (e: MouseEvent) => {
       x = e.clientX; y = e.clientY;
       dot.style.opacity = '1';
-      ring.style.opacity = '1';
-      dot.style.transform = `translate(${x}px, ${y}px)`;
       const t = e.target as HTMLElement;
-      const interactive = !!t.closest?.('a, button, [role="button"], input, textarea, select, label');
-      inner.dataset.active = interactive ? '1' : '0';
+      setActive(!!t.closest?.('a, button, [role="button"], input, textarea, select, label'));
     };
     const loop = () => {
-      rx += (x - rx) * 0.14;
-      ry += (y - ry) * 0.14;
-      ring.style.transform = `translate(${rx}px, ${ry}px)`;
+      dx += (x - dx) * 0.35;
+      dy += (y - dy) * 0.35;
+      dot.style.transform = `translate(${dx}px, ${dy}px)`;
       raf = requestAnimationFrame(loop);
     };
-    const down = () => { inner.dataset.pressed = '1'; };
-    const up = () => { inner.dataset.pressed = '0'; };
-    const leave = () => { dot.style.opacity = '0'; ring.style.opacity = '0'; };
+    const leave = () => { dot.style.opacity = '0'; };
 
     window.addEventListener('mousemove', move, { passive: true });
-    window.addEventListener('mousedown', down);
-    window.addEventListener('mouseup', up);
     document.documentElement.addEventListener('mouseleave', leave);
     raf = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('mousemove', move);
-      window.removeEventListener('mousedown', down);
-      window.removeEventListener('mouseup', up);
       document.documentElement.removeEventListener('mouseleave', leave);
     };
   }, []);
 
   return (
-    <>
-      {/* trailing ring */}
-      <div ref={ringRef} className="pointer-events-none fixed left-0 top-0 z-[99] opacity-0" aria-hidden>
-        <div
-          ref={ringInnerRef}
-          data-active="0"
-          data-pressed="0"
-          className={cn(
-            'h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-[#1E40AF]/50',
-            'transition-[width,height,background-color,border-color,transform] duration-300 ease-[cubic-bezier(.16,1,.3,1)]',
-            'data-[active="1"]:h-14 data-[active="1"]:w-14 data-[active="1"]:border-[#0D9488]/60 data-[active="1"]:bg-[#0D9488]/10',
-            'data-[pressed="1"]:scale-75',
-          )}
-        />
-      </div>
-      {/* instant dot */}
-      <div ref={dotRef} className="pointer-events-none fixed left-0 top-0 z-[99] opacity-0" aria-hidden>
-        <div className="h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#1E40AF] to-[#0D9488]" />
-      </div>
-    </>
+    <div ref={dotRef} className="pointer-events-none fixed left-0 top-0 z-[99] opacity-0 transition-opacity duration-200" aria-hidden>
+      <div
+        ref={innerRef}
+        className="h-2 w-2 rounded-full"
+        style={{ transition: 'transform .2s ease-out, background-color .2s ease-out, box-shadow .2s ease-out' }}
+      />
+    </div>
   );
 }
 
@@ -353,8 +338,8 @@ function HeroCard() {
     const el = tiltRef.current; if (!el) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const r = el.getBoundingClientRect();
-    const rx = ((e.clientY - r.top) / r.height - 0.5) * -7;
-    const ry = ((e.clientX - r.left) / r.width - 0.5) * 9;
+    const rx = ((e.clientY - r.top) / r.height - 0.5) * -4;
+    const ry = ((e.clientX - r.left) / r.width - 0.5) * 6;
     el.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
   }, []);
   const resetTilt = useCallback(() => {
@@ -429,7 +414,7 @@ function HeroCard() {
               onClick={() => setFlipped((f) => !f)}
               aria-label={flipped ? 'Show question' : 'Reveal answer'}
               className="relative block h-64 w-full cursor-pointer text-left [transform-style:preserve-3d] focus-visible:outline-none"
-              style={{ transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)', transition: 'transform .65s cubic-bezier(.16,1,.3,1)' }}
+              style={{ transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)', transition: 'transform .5s cubic-bezier(.16,1,.3,1)' }}
             >
               {/* front */}
               <div key={`f-${idx}`} className="absolute inset-0 flex flex-col rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_28px_60px_-28px_rgba(15,23,42,0.32)] [backface-visibility:hidden]" style={{ animation: 'scale-in .4s cubic-bezier(.16,1,.3,1)' }}>
@@ -469,7 +454,7 @@ function HeroCard() {
             key={label}
             type="button"
             onClick={() => rate(interval)}
-            className={cn('rounded-lg border bg-white py-2 text-center text-xs font-semibold transition-all duration-150 active:scale-95', cls)}
+            className={cn('rounded-lg border bg-white py-2 text-center text-xs font-semibold transition-all duration-150 active:scale-[0.97]', cls)}
           >
             {label}
           </button>
@@ -713,7 +698,7 @@ function AiForge() {
             style={{
               opacity: showCards ? 1 : 0,
               transform: showCards ? 'none' : 'translateY(14px) scale(.97)',
-              transition: `opacity .5s cubic-bezier(.16,1,.3,1) ${i * 110}ms, transform .5s cubic-bezier(.16,1,.3,1) ${i * 110}ms`,
+              transition: `opacity .35s cubic-bezier(.16,1,.3,1) ${i * 90}ms, transform .35s cubic-bezier(.16,1,.3,1) ${i * 90}ms`,
             }}
           >
             <span className="mb-2 inline-block rounded bg-[#1E40AF]/8 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#1E40AF]">{topic.tag}</span>
@@ -741,7 +726,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         </span>
       </button>
       <div
-        className="grid transition-all duration-400 ease-[cubic-bezier(.16,1,.3,1)]"
+        className="grid transition-all duration-300 ease-[cubic-bezier(.16,1,.3,1)]"
         style={{ gridTemplateRows: open ? '1fr' : '0fr', opacity: open ? 1 : 0 }}
       >
         <div className="overflow-hidden">
@@ -859,7 +844,7 @@ export function LandingPage() {
             background: 'radial-gradient(500px circle at var(--cx,70%) var(--cy,30%), rgba(30,64,175,0.08), transparent 60%)',
           }}
         />
-        <div className="relative mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 px-6 pb-24 pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:pt-24">
+        <div className="relative mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 px-6 pb-28 pt-24 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20 lg:pt-28">
           <div>
             <Reveal>
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 py-1.5 pl-1.5 pr-3.5 shadow-sm backdrop-blur">
@@ -884,7 +869,7 @@ export function LandingPage() {
             </Reveal>
             <Reveal index={3}>
               <div className="mt-9 flex flex-wrap items-center gap-3">
-                <Magnetic strength={0.25}>
+                <Magnetic>
                   <Button asChild size="lg" className="group h-12 rounded-xl bg-[#1E40AF] px-6 text-[15px] shadow-sm transition-all hover:bg-[#1B3A9E] hover:shadow-lg">
                     <Link href="/auth/login">
                       <GraduationCap className="h-[18px] w-[18px]" />
@@ -936,7 +921,7 @@ export function LandingPage() {
               <Reveal key={n} index={i}>
                 <Spotlight
                   glow={tone === 'blue' ? 'rgba(30,64,175,0.10)' : 'rgba(13,148,136,0.10)'}
-                  className="group grid grid-cols-1 items-center gap-6 rounded-3xl border border-slate-200/80 bg-white p-8 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_20px_50px_-30px_rgba(15,23,42,0.3)] md:grid-cols-[auto_1fr_auto]"
+                  className="group grid grid-cols-1 items-center gap-6 rounded-3xl border border-slate-200/80 bg-white p-8 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_20px_50px_-30px_rgba(15,23,42,0.3)] md:grid-cols-[auto_1fr_auto]"
                 >
                   <span className={cn('font-display text-[40px] font-extrabold tabular-nums tracking-tight', tone === 'blue' ? 'text-[#1E40AF]/15' : 'text-[#0D9488]/20')}>{n}</span>
                   <div className="max-w-xl">
@@ -1011,7 +996,7 @@ export function LandingPage() {
 
           {/* panel */}
           <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-b from-white to-[#F7F9FC] p-8 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.3)] md:p-12">
-            <div key={activeRole} className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2" style={{ animation: 'fade-in-up .5s cubic-bezier(.16,1,.3,1)' }}>
+            <div key={activeRole} className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2" style={{ animation: 'fade-in-up .3s cubic-bezier(.16,1,.3,1)' }}>
               <div>
                 <div className={cn('mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl', toneTile(activeRole === 1 ? 'teal' : 'blue'))}>
                   {(() => { const I = roles[activeRole].icon; return <I className="h-5.5 w-5.5" />; })()}
@@ -1090,7 +1075,7 @@ export function LandingPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {securityPoints.map(({ icon: Icon, title, desc }, i) => (
                 <Reveal key={title} index={i}>
-                  <Spotlight className="h-full rounded-2xl border border-slate-200/80 bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-30px_rgba(15,23,42,0.3)]">
+                  <Spotlight className="h-full rounded-2xl border border-slate-200/80 bg-white p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_-28px_rgba(15,23,42,0.35)]">
                     <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#1E40AF]/8 text-[#1E40AF]">
                       <Icon className="h-5 w-5" />
                     </div>
@@ -1155,7 +1140,7 @@ export function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Magnetic strength={0.2}>
+                <Magnetic>
                   <Button asChild className="h-11 w-full rounded-xl bg-[#1E40AF] hover:bg-[#1B3A9E]">
                     <a href="#demo">Request a demo</a>
                   </Button>
