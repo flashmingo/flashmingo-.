@@ -198,69 +198,6 @@ function ScrollProgress() {
 }
 
 /**
- * Hover halo: the native cursor stays visible. When hovering an
- * interactive element, a soft ring fades in and expands around the
- * cursor, trailing it with a light lerp. Desktop only.
- */
-function CustomCursor() {
-  const haloRef = useRef<HTMLDivElement>(null);
-  const ringRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const halo = haloRef.current, ring = ringRef.current;
-    if (!halo || !ring) return;
-
-    let x = -100, y = -100, hx = -100, hy = -100;
-    let raf = 0;
-
-    const setActive = (on: boolean) => {
-      ring.style.opacity = on ? '1' : '0';
-      ring.style.transform = `translate(-50%, -50%) scale(${on ? 1 : 0.5})`;
-    };
-    setActive(false);
-
-    const move = (e: MouseEvent) => {
-      x = e.clientX; y = e.clientY;
-      const t = e.target as HTMLElement;
-      setActive(!!t.closest?.('a, button, [role="button"], input, textarea, select, label'));
-    };
-    const loop = () => {
-      hx += (x - hx) * 0.3;
-      hy += (y - hy) * 0.3;
-      halo.style.transform = `translate(${hx}px, ${hy}px)`;
-      raf = requestAnimationFrame(loop);
-    };
-    const leave = () => setActive(false);
-
-    window.addEventListener('mousemove', move, { passive: true });
-    document.documentElement.addEventListener('mouseleave', leave);
-    raf = requestAnimationFrame(loop);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('mousemove', move);
-      document.documentElement.removeEventListener('mouseleave', leave);
-    };
-  }, []);
-
-  return (
-    <div ref={haloRef} className="pointer-events-none fixed left-0 top-0 z-[99]" aria-hidden>
-      <div
-        ref={ringRef}
-        className="h-10 w-10 rounded-full"
-        style={{
-          border: '1.5px solid rgba(37,99,235,0.45)',
-          backgroundColor: 'rgba(37,99,235,0.06)',
-          boxShadow: '0 0 18px rgba(37,99,235,0.18)',
-          opacity: 0,
-          transform: 'translate(-50%, -50%) scale(0.5)',
-          transition: 'opacity .22s ease-out, transform .22s cubic-bezier(.16,1,.3,1)',
-        }}
-      />
-    </div>
-  );
-}
-
-/**
  * Card wrapper with a cursor-tracked radial glow (Linear/Vercel style) and a
  * subtle lift. The glow lives in a `::before`-like overlay driven by CSS vars.
  */
@@ -544,7 +481,7 @@ function MemoryDiagram() {
 
 /* ─────────────────────── Per-role product previews ───────────────────── */
 function RoleMock({ role }: { role: 'student' | 'teacher' | 'admin' }) {
-  const frame = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_16px_40px_-24px_rgba(15,23,42,0.35)]';
+  const frame = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_16px_40px_-24px_rgba(15,23,42,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_48px_-24px_rgba(15,23,42,0.4)]';
 
   if (role === 'student') {
     return (
@@ -627,7 +564,7 @@ function RoleMock({ role }: { role: 'student' | 'teacher' | 'admin' }) {
   );
 }
 
-/* ───────────────────────── AI forge live demo ────────────────────────── */
+/* ───────────────────────── AI forge — interactive ────────────────────── */
 const forgeTopics = [
   {
     prompt: 'Photosynthesis — 8th grade',
@@ -642,17 +579,44 @@ const forgeTopics = [
   {
     prompt: 'Spanish irregular verbs',
     tag: 'Spanish',
-    cards: ['Conjugate “ser” in the yo form', '“Ir” in the preterite — ellos', 'What does “tener que” mean?', 'Conjugate “estar” — nosotros'],
+    cards: ['Conjugate \u201cser\u201d in the yo form', '\u201cIr\u201d in the preterite \u2014 ellos', 'What does \u201ctener que\u201d mean?', 'Conjugate \u201cestar\u201d \u2014 nosotros'],
   },
 ];
 
+/** Turn any visitor-typed topic into a plausible mini deck. */
+function cardsForTopic(raw: string): string[] {
+  const t = raw.trim().replace(/[.?!]+$/, '');
+  return [
+    `Define ${t} in your own words.`,
+    `Give a real-world example of ${t}.`,
+    `What's one common misconception about ${t}?`,
+    `Summarize ${t} in one sentence.`,
+  ];
+}
+
+/* Cards deal out of a central pile: each starts stacked, rotated, and
+   converges to its grid cell with a springy stagger. */
+const dealFrom = [
+  'translate(52%, 46px) rotate(-7deg) scale(0.82)',
+  'translate(-52%, 46px) rotate(6deg) scale(0.82)',
+  'translate(52%, -34px) rotate(-4deg) scale(0.82)',
+  'translate(-52%, -34px) rotate(5deg) scale(0.82)',
+];
+
 function AiForge() {
+  const [mode, setMode] = useState<'demo' | 'user'>('demo');
   const [tIdx, setTIdx] = useState(0);
   const [typed, setTyped] = useState('');
   const [showCards, setShowCards] = useState(false);
+  const [input, setInput] = useState('');
+  const [userTopic, setUserTopic] = useState('');
+  const [shuffling, setShuffling] = useState(false);
+  const [dealt, setDealt] = useState(false);
   const topic = forgeTopics[tIdx];
 
+  /* auto demo loop — only while nobody is playing */
   useEffect(() => {
+    if (mode !== 'demo') return;
     let alive = true;
     const timers: number[] = [];
     setTyped('');
@@ -669,46 +633,145 @@ function AiForge() {
       }
     }, 52);
     return () => { alive = false; window.clearInterval(type); timers.forEach(window.clearTimeout); };
-  }, [tIdx, topic.prompt]);
+  }, [tIdx, topic.prompt, mode]);
+
+  const generate = () => {
+    const t = input.trim();
+    if (!t || shuffling) return;
+    setUserTopic(t);
+    setDealt(false);
+    setShuffling(true);
+    window.setTimeout(() => { setShuffling(false); setDealt(true); }, 750);
+  };
+
+  const reset = () => {
+    setInput(''); setUserTopic(''); setDealt(false); setShuffling(false);
+    setMode('demo'); setTIdx(0);
+  };
+
+  const userMode = mode === 'user';
+  const cards = userMode && userTopic ? cardsForTopic(userTopic) : topic.cards;
+  const tag = userMode && userTopic
+    ? (userTopic.length > 14 ? userTopic.slice(0, 14).trimEnd() + '\u2026' : userTopic)
+    : topic.tag;
+  const visible = userMode ? dealt : showCards;
 
   return (
     <div className="relative">
-      {/* input mock */}
-      <div className="relative z-[1] flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.35)]">
+      {/* input row — actually typeable */}
+      <div className={cn(
+        'relative z-[2] flex items-center gap-3 rounded-2xl border bg-white p-3.5 pl-4 transition-all duration-200',
+        userMode
+          ? 'border-[#1E40AF]/40 shadow-[0_20px_50px_-30px_rgba(30,64,175,0.45)] ring-4 ring-[#1E40AF]/5'
+          : 'border-slate-200 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.35)]',
+      )}>
         <span className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E40AF] to-[#0D9488] text-white transition-transform duration-500',
-          showCards && 'scale-110',
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E40AF] to-[#0D9488] text-white transition-transform duration-300',
+          shuffling && 'animate-fm-spin',
+          visible && !shuffling && 'scale-110',
         )}>
           <Sparkles className="h-4 w-4" />
         </span>
-        <p className="flex-1 truncate font-mono text-[14.5px] text-slate-800">
-          {typed}
-          <span className="ml-0.5 inline-block h-[1.1em] w-[2px] translate-y-[3px] animate-pulse bg-[#1E40AF]" />
-        </p>
-        <span className={cn(
-          'shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all duration-300',
-          showCards ? 'bg-[#0D9488]/10 text-[#0D9488]' : 'bg-slate-100 text-slate-400',
-        )}>
-          {showCards ? '✓ 24 cards' : 'Generating…'}
-        </span>
+
+        {userMode ? (
+          <input
+            autoFocus
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') generate(); }}
+            placeholder="Type any topic… e.g. the water cycle"
+            maxLength={60}
+            className="min-w-0 flex-1 bg-transparent font-mono text-[14.5px] text-slate-800 placeholder:text-slate-400 focus:outline-none"
+            aria-label="Topic for your deck"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => { setMode('user'); setShowCards(false); }}
+            className="min-w-0 flex-1 truncate text-left font-mono text-[14.5px] text-slate-800"
+            aria-label="Type your own topic"
+          >
+            {typed}
+            <span className="ml-0.5 inline-block h-[1.1em] w-[2px] translate-y-[3px] animate-pulse bg-[#1E40AF]" />
+          </button>
+        )}
+
+        {userMode ? (
+          <button
+            type="button"
+            onClick={generate}
+            disabled={!input.trim() || shuffling}
+            className={cn(
+              'shrink-0 rounded-lg px-3.5 py-2 text-[12.5px] font-semibold transition-all duration-200',
+              input.trim() && !shuffling
+                ? 'bg-[#1E40AF] text-white hover:bg-[#1B3A9E] active:scale-[0.97]'
+                : 'bg-slate-100 text-slate-400',
+            )}
+          >
+            {shuffling ? 'Forging\u2026' : 'Generate'}
+          </button>
+        ) : (
+          <span className={cn(
+            'shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all duration-300',
+            showCards ? 'bg-[#0D9488]/10 text-[#0D9488]' : 'bg-slate-100 text-slate-400',
+          )}>
+            {showCards ? '\u2713 24 cards' : 'Generating\u2026'}
+          </span>
+        )}
       </div>
 
-      {/* generated cards */}
+      {/* shuffle pile — appears while forging */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-[76px] z-[1] -translate-x-1/2 transition-opacity duration-200"
+        style={{ opacity: shuffling ? 1 : 0 }}
+      >
+        <div className="relative h-20 w-32">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="absolute inset-0 rounded-xl border border-slate-200 bg-white shadow-md"
+              style={{
+                transform: shuffling ? `rotate(${(i - 1) * 8}deg) translateY(${i * -3}px)` : 'none',
+                transition: `transform .45s cubic-bezier(.16,1,.3,1) ${i * 70}ms`,
+              }}
+            />
+          ))}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Sparkles className="h-5 w-5 animate-pulse text-[#1E40AF]" />
+          </div>
+        </div>
+      </div>
+
+      {/* the deck — deals out of the pile */}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {topic.cards.map((q, i) => (
+        {cards.map((q, i) => (
           <div
-            key={`${tIdx}-${i}`}
-            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+            key={`${userMode ? userTopic : tIdx}-${i}`}
+            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
             style={{
-              opacity: showCards ? 1 : 0,
-              transform: showCards ? 'none' : 'translateY(14px) scale(.97)',
-              transition: `opacity .35s cubic-bezier(.16,1,.3,1) ${i * 90}ms, transform .35s cubic-bezier(.16,1,.3,1) ${i * 90}ms`,
+              opacity: visible ? 1 : 0,
+              transform: visible
+                ? 'translate(0,0) rotate(0deg) scale(1)'
+                : userMode ? dealFrom[i % dealFrom.length] : 'translateY(14px) scale(.97)',
+              transition: `opacity .4s cubic-bezier(.16,1,.3,1) ${i * 100}ms, transform .5s cubic-bezier(.22,1.2,.36,1) ${i * 100}ms`,
             }}
           >
-            <span className="mb-2 inline-block rounded bg-[#1E40AF]/8 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#1E40AF]">{topic.tag}</span>
+            <span className="mb-2 inline-block max-w-full truncate rounded bg-[#1E40AF]/8 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#1E40AF]">{tag}</span>
             <p className="text-[13.5px] font-medium leading-[1.45] text-slate-800">{q}</p>
           </div>
         ))}
+      </div>
+
+      {/* footer row in user mode */}
+      <div
+        className="mt-3.5 flex items-center justify-between text-[12px] transition-opacity duration-300"
+        style={{ opacity: userMode && dealt ? 1 : 0, pointerEvents: userMode && dealt ? 'auto' : 'none' }}
+      >
+        <span className="text-slate-400">Sign in to save this deck — and 20 more cards like it.</span>
+        <button type="button" onClick={reset} className="flex items-center gap-1.5 font-semibold text-[#1E40AF] transition-colors hover:text-[#1B3A9E]">
+          <RotateCcw className="h-3 w-3" /> Try another
+        </button>
       </div>
     </div>
   );
@@ -718,10 +781,10 @@ function AiForge() {
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-b border-slate-200/80">
+    <div className="border-b border-slate-200/80 transition-colors duration-200 hover:bg-slate-50/60">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-6 py-5 text-left"
+        className="flex w-full items-center justify-between gap-6 px-2 py-5 text-left"
         aria-expanded={open}
       >
         <span className="text-[15px] font-semibold text-slate-900">{q}</span>
@@ -734,7 +797,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         style={{ gridTemplateRows: open ? '1fr' : '0fr', opacity: open ? 1 : 0 }}
       >
         <div className="overflow-hidden">
-          <p className="max-w-[600px] pb-5 text-[14px] leading-[1.6] text-slate-500">{a}</p>
+          <p className="max-w-[600px] px-2 pb-5 text-[14px] leading-[1.6] text-slate-500">{a}</p>
         </div>
       </div>
     </div>
@@ -748,13 +811,6 @@ export function LandingPage() {
   const year = new Date().getFullYear();
   const [scrolled, setScrolled] = useState(false);
   const [activeRole, setActiveRole] = useState(0);
-  const [cursorOn, setCursorOn] = useState(false);
-
-  useEffect(() => {
-    const fine = window.matchMedia('(pointer: fine)').matches;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    setCursorOn(fine && !reduced);
-  }, []);
   const [demoForm, setDemoForm] = useState({ name: '', email: '', school: '', useCase: '' });
   const [demoStatus, setDemoStatus] = useState<string | null>(null);
   const [demoSubmitting, setDemoSubmitting] = useState(false);
@@ -801,7 +857,6 @@ export function LandingPage() {
       }}
     >
       <ScrollProgress />
-      {cursorOn && <CustomCursor />}
 
       {/* ── Nav ───────────────────────────────────────────────────────── */}
       <header className={cn(
@@ -1103,7 +1158,7 @@ export function LandingPage() {
           </Reveal>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Reveal index={0}>
-              <div className="flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-8">
+              <div className="flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-8 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_16px_40px_-28px_rgba(15,23,42,0.35)]">
                 <p className="text-[12.5px] font-semibold uppercase tracking-[0.08em] text-slate-500">Free</p>
                 <div className="mb-1 mt-3"><span className="font-display text-[44px] font-extrabold tracking-[-0.03em] text-slate-900">$0</span><span className="ml-2 text-sm text-slate-500">forever</span></div>
                 <p className="mb-6 text-sm text-slate-500">For individual students and teachers.</p>
