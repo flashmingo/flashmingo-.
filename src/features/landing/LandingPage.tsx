@@ -198,6 +198,80 @@ function ScrollProgress() {
 }
 
 /**
+ * High-tech custom cursor: an instant dot plus a spring-lagged ring that
+ * expands and tints over interactive elements, with a press pulse.
+ * Renders nothing on touch devices or when reduced motion is preferred.
+ */
+function CustomCursor() {
+  const dotRef = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
+  const ringInnerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const dot = dotRef.current, ring = ringRef.current, inner = ringInnerRef.current;
+    if (!dot || !ring || !inner) return;
+
+    let x = -100, y = -100, rx = -100, ry = -100;
+    let raf = 0;
+
+    const move = (e: MouseEvent) => {
+      x = e.clientX; y = e.clientY;
+      dot.style.opacity = '1';
+      ring.style.opacity = '1';
+      dot.style.transform = `translate(${x}px, ${y}px)`;
+      const t = e.target as HTMLElement;
+      const interactive = !!t.closest?.('a, button, [role="button"], input, textarea, select, label');
+      inner.dataset.active = interactive ? '1' : '0';
+    };
+    const loop = () => {
+      rx += (x - rx) * 0.14;
+      ry += (y - ry) * 0.14;
+      ring.style.transform = `translate(${rx}px, ${ry}px)`;
+      raf = requestAnimationFrame(loop);
+    };
+    const down = () => { inner.dataset.pressed = '1'; };
+    const up = () => { inner.dataset.pressed = '0'; };
+    const leave = () => { dot.style.opacity = '0'; ring.style.opacity = '0'; };
+
+    window.addEventListener('mousemove', move, { passive: true });
+    window.addEventListener('mousedown', down);
+    window.addEventListener('mouseup', up);
+    document.documentElement.addEventListener('mouseleave', leave);
+    raf = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mousedown', down);
+      window.removeEventListener('mouseup', up);
+      document.documentElement.removeEventListener('mouseleave', leave);
+    };
+  }, []);
+
+  return (
+    <>
+      {/* trailing ring */}
+      <div ref={ringRef} className="pointer-events-none fixed left-0 top-0 z-[99] opacity-0" aria-hidden>
+        <div
+          ref={ringInnerRef}
+          data-active="0"
+          data-pressed="0"
+          className={cn(
+            'h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-[#1E40AF]/50',
+            'transition-[width,height,background-color,border-color,transform] duration-300 ease-[cubic-bezier(.16,1,.3,1)]',
+            'data-[active="1"]:h-14 data-[active="1"]:w-14 data-[active="1"]:border-[#0D9488]/60 data-[active="1"]:bg-[#0D9488]/10',
+            'data-[pressed="1"]:scale-75',
+          )}
+        />
+      </div>
+      {/* instant dot */}
+      <div ref={dotRef} className="pointer-events-none fixed left-0 top-0 z-[99] opacity-0" aria-hidden>
+        <div className="h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#1E40AF] to-[#0D9488]" />
+      </div>
+    </>
+  );
+}
+
+/**
  * Card wrapper with a cursor-tracked radial glow (Linear/Vercel style) and a
  * subtle lift. The glow lives in a `::before`-like overlay driven by CSS vars.
  */
@@ -401,9 +475,6 @@ function HeroCard() {
           </button>
         ))}
       </div>
-      <p className="mt-3 text-center text-[11.5px] text-slate-400">
-        This isn&apos;t a mockup — flip the card and rate yourself.
-      </p>
     </div>
   );
 }
@@ -688,6 +759,13 @@ export function LandingPage() {
   const year = new Date().getFullYear();
   const [scrolled, setScrolled] = useState(false);
   const [activeRole, setActiveRole] = useState(0);
+  const [cursorOn, setCursorOn] = useState(false);
+
+  useEffect(() => {
+    const fine = window.matchMedia('(pointer: fine)').matches;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setCursorOn(fine && !reduced);
+  }, []);
   const [demoForm, setDemoForm] = useState({ name: '', email: '', school: '', useCase: '' });
   const [demoStatus, setDemoStatus] = useState<string | null>(null);
   const [demoSubmitting, setDemoSubmitting] = useState(false);
@@ -724,7 +802,10 @@ export function LandingPage() {
 
   return (
     <div
-      className="min-h-screen overflow-x-hidden bg-white font-sans text-slate-900 antialiased"
+      className={cn(
+        'min-h-screen overflow-x-hidden bg-white font-sans text-slate-900 antialiased',
+        cursorOn && 'cursor-none [&_*]:!cursor-none',
+      )}
       onMouseMove={(e) => {
         const t = e.currentTarget;
         t.style.setProperty('--cx', `${e.clientX}px`);
@@ -732,6 +813,7 @@ export function LandingPage() {
       }}
     >
       <ScrollProgress />
+      {cursorOn && <CustomCursor />}
 
       {/* ── Nav ───────────────────────────────────────────────────────── */}
       <header className={cn(
@@ -785,26 +867,19 @@ export function LandingPage() {
                 <span className="text-[13px] font-medium text-slate-600">AI deck generation, now for every teacher</span>
               </div>
             </Reveal>
-            <h1 className="max-w-[560px] text-balance font-display text-[clamp(2.6rem,5.4vw,4rem)] font-extrabold leading-[1.02] tracking-[-0.035em] text-slate-900">
-              {['The', 'flashcard', 'platform'].map((w, i) => (
-                <span key={w} className="inline-block" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) ${i * 90}ms both` }}>
+            <h1 className="max-w-[560px] text-balance font-display text-[clamp(3rem,6.4vw,4.8rem)] font-bold leading-[1.0] tracking-[-0.04em] text-slate-900">
+              {['Learning', 'that'].map((w, i) => (
+                <span key={w} className="inline-block" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) ${i * 110}ms both` }}>
                   {w}&nbsp;
                 </span>
               ))}
-              <br className="hidden sm:block" />
-              {['schools', 'can'].map((w, i) => (
-                <span key={w} className="inline-block" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) ${(i + 3) * 90}ms both` }}>
-                  {w}&nbsp;
-                </span>
-              ))}
-              <span className="inline-block bg-gradient-to-r from-[#1E40AF] to-[#0D9488] bg-clip-text text-transparent" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) 450ms both` }}>
-                trust
+              <span className="inline-block bg-gradient-to-r from-[#1E40AF] via-[#2563EB] to-[#0D9488] bg-clip-text text-transparent" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) 240ms both` }}>
+                sticks.
               </span>
-              <span className="inline-block" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) 500ms both` }}>.</span>
             </h1>
             <Reveal index={2}>
-              <p className="mt-6 max-w-[400px] text-[18px] leading-[1.6] text-slate-500">
-                Study smarter. Remember longer. Private by design for K–12.
+              <p className="mt-6 max-w-[400px] text-[19px] leading-[1.55] text-slate-500">
+                The flashcard platform built for schools.
               </p>
             </Reveal>
             <Reveal index={3}>
@@ -821,15 +896,6 @@ export function LandingPage() {
                 <Button asChild variant="outline" size="lg" className="h-12 rounded-xl border-slate-200 bg-white px-6 text-[15px] text-slate-700 hover:bg-slate-50">
                   <a href="#demo">Request a demo</a>
                 </Button>
-              </div>
-            </Reveal>
-            <Reveal index={4}>
-              <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-3 text-[13px] text-slate-500">
-                {['FERPA compliant', 'Google & Microsoft SSO', 'No credit card'].map((t) => (
-                  <span key={t} className="flex items-center gap-1.5">
-                    <Check className="h-4 w-4 text-[#0D9488] [stroke-width:2.5]" />{t}
-                  </span>
-                ))}
               </div>
             </Reveal>
           </div>
@@ -980,7 +1046,7 @@ export function LandingPage() {
               <span className="h-1.5 w-1.5 rounded-full bg-[#5EEAD4]" />
               <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Learning intelligence</span>
             </div>
-            <h2 className="mb-5 text-balance font-display text-[clamp(1.9rem,3.4vw,2.6rem)] font-bold leading-[1.1] tracking-[-0.03em]">
+            <h2 className="mb-5 text-balance font-display text-[clamp(1.9rem,3.4vw,2.6rem)] font-bold leading-[1.1] tracking-[-0.03em] !text-white">
               We show each card right before it fades.
             </h2>
             <p className="max-w-md text-[15px] leading-[1.65] text-slate-300">
@@ -1139,7 +1205,7 @@ export function LandingPage() {
               <span className="h-1.5 w-1.5 rounded-full bg-[#5EEAD4]" />
               <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Request a demo</span>
             </div>
-            <h2 className="mb-4 text-balance font-display text-[clamp(2rem,3.6vw,2.8rem)] font-bold leading-[1.08] tracking-[-0.03em]">
+            <h2 className="mb-4 text-balance font-display text-[clamp(2rem,3.6vw,2.8rem)] font-bold leading-[1.08] tracking-[-0.03em] !text-white">
               See FlashMingo in your district.
             </h2>
             <p className="max-w-md text-[15px] leading-[1.65] text-slate-300">
