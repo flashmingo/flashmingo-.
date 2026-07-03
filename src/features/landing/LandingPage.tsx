@@ -28,21 +28,21 @@ const narrative = [
     tone: 'blue' as const,
     icon: Brain,
     title: 'Learning that adapts to memory',
-    body: 'FlashMingo schedules every card with the SM-2 algorithm — the science behind Anki. Students review exactly what they\'re about to forget, and nothing they already know.',
+    body: 'Every card returns right before you\'d forget it.',
   },
   {
     n: '02',
     tone: 'teal' as const,
     icon: Sparkles,
-    title: 'Decks built in seconds, not evenings',
-    body: 'Teachers describe a topic and FlashMingo drafts a complete, structured deck. Edit, publish to a class, or share across the district library — all in a few clicks.',
+    title: 'Decks built in seconds',
+    body: 'Describe a topic — get a full, editable deck.',
   },
   {
     n: '03',
     tone: 'blue' as const,
     icon: LineChart,
-    title: 'Progress you can actually act on',
-    body: 'A PowerSchool-clean dashboard surfaces streaks, accuracy, and who\'s falling behind — so intervention happens in week one, not at the report card.',
+    title: 'Progress you can act on',
+    body: 'Streaks, accuracy, and who needs help — at a glance.',
   },
 ];
 
@@ -71,10 +71,10 @@ const roles = [
 ] as const;
 
 const securityPoints = [
-  { icon: Lock,      title: 'Google & Microsoft SSO', desc: 'No passwords to manage, reset, or breach. Sign in with the account the district already trusts.' },
-  { icon: ShieldCheck, title: 'FERPA & COPPA aligned', desc: 'Student records are never sold, shared, or used for advertising. Ever.' },
-  { icon: FileText,  title: 'Immutable audit log', desc: 'Every privileged action is logged with an actor and timestamp — no deletes, no edits.' },
-  { icon: Users,     title: 'District data isolation', desc: 'Row-level security enforces strict per-district boundaries at the database.' },
+  { icon: Lock,      title: 'Google & Microsoft SSO', desc: 'No passwords to manage or breach.' },
+  { icon: ShieldCheck, title: 'FERPA & COPPA aligned', desc: 'Student data is never sold or shared.' },
+  { icon: FileText,  title: 'Immutable audit log', desc: 'Every action logged. No edits, no deletes.' },
+  { icon: Users,     title: 'District data isolation', desc: 'Strict per-district boundaries, enforced at the database.' },
 ];
 
 const freeFeatures = ['Unlimited personal decks', 'AI deck generation', 'Spaced-repetition engine', 'Join classrooms'];
@@ -135,33 +135,6 @@ function Reveal({
   );
 }
 
-/** Animated count-up when scrolled into view. */
-function Counter({ to, suffix = '', duration = 1400 }: { to: number; suffix?: string; duration?: number }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [val, setVal] = useState(0);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setVal(to); return; }
-    const io = new IntersectionObserver(([e]) => {
-      if (!e.isIntersecting) return;
-      io.disconnect();
-      const start = performance.now();
-      const tick = (now: number) => {
-        const p = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - p, 3);
-        setVal(Math.round(to * eased));
-        if (p < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }, { threshold: 0.5 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [to, duration]);
-
-  return <span ref={ref}>{val.toLocaleString()}{suffix}</span>;
-}
 
 /** Subtle magnetic pull toward the cursor. */
 function Magnetic({ children, className, strength = 0.35 }: {
@@ -509,6 +482,91 @@ function MemoryDiagram() {
   );
 }
 
+/* ─────────────────────── Per-role product previews ───────────────────── */
+function RoleMock({ role }: { role: 'student' | 'teacher' | 'admin' }) {
+  const frame = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_16px_40px_-24px_rgba(15,23,42,0.35)]';
+
+  if (role === 'student') {
+    return (
+      <div className={frame}>
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-[13px] font-semibold text-slate-900">Today&apos;s review</p>
+          <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-500">🔥 12-day streak</span>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-[#F7F9FC] p-5 text-center">
+          <span className="mb-2 inline-block rounded bg-[#0D9488]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#0D9488]">Biology</span>
+          <p className="font-display text-[17px] font-bold text-slate-900">What is osmosis?</p>
+          <p className="mt-1 text-[11.5px] text-slate-400">Tap to reveal</p>
+        </div>
+        <div className="mt-4 flex items-center justify-between text-[12px] text-slate-500">
+          <span>18 cards due</span>
+          <div className="h-1.5 w-28 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full w-2/3 rounded-full bg-[#0D9488]" />
+          </div>
+          <span className="font-semibold text-slate-700">12 / 18</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (role === 'teacher') {
+    const rows = [
+      { name: 'Ava M.',   pct: 94, tone: 'bg-[#0D9488]' },
+      { name: 'Liam R.',  pct: 76, tone: 'bg-[#1E40AF]' },
+      { name: 'Noah T.',  pct: 41, tone: 'bg-orange-400' },
+    ];
+    return (
+      <div className={frame}>
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-[13px] font-semibold text-slate-900">Period 3 · Biology</p>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">This week</span>
+        </div>
+        <div className="space-y-2.5">
+          {rows.map((r) => (
+            <div key={r.name} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3.5 py-2.5">
+              <span className="w-16 text-[12.5px] font-medium text-slate-700">{r.name}</span>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                <div className={cn('h-full rounded-full', r.tone)} style={{ width: `${r.pct}%` }} />
+              </div>
+              <span className="w-9 text-right text-[12px] font-bold tabular-nums text-slate-700">{r.pct}%</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3.5 flex items-center gap-1.5 text-[11.5px] text-orange-500">
+          <span className="h-1.5 w-1.5 rounded-full bg-orange-400" /> Noah hasn&apos;t studied in 4 days
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={frame}>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-[13px] font-semibold text-slate-900">Pending approvals</p>
+        <span className="rounded-full bg-[#1E40AF]/8 px-2.5 py-1 text-[11px] font-bold text-[#1E40AF]">3 new</span>
+      </div>
+      <div className="space-y-2.5">
+        {[
+          { name: 'E. Chen',  role: 'Teacher' },
+          { name: 'M. Patel', role: 'Student' },
+        ].map((u) => (
+          <div key={u.name} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3.5 py-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1E40AF]/10 text-[10px] font-bold text-[#1E40AF]">{u.name[0]}</span>
+            <div className="flex-1">
+              <p className="text-[12.5px] font-medium text-slate-800">{u.name}</p>
+              <p className="text-[10.5px] text-slate-400">{u.role}</p>
+            </div>
+            <span className="rounded-lg bg-[#0D9488] px-3 py-1.5 text-[11px] font-semibold text-white">Approve</span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3.5 flex items-center gap-1.5 text-[11.5px] text-slate-400">
+        <FileText className="h-3 w-3" /> Every action lands in the audit log
+      </p>
+    </div>
+  );
+}
+
 /* ───────────────────────── AI forge live demo ────────────────────────── */
 const forgeTopics = [
   {
@@ -745,8 +803,8 @@ export function LandingPage() {
               <span className="inline-block" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) 500ms both` }}>.</span>
             </h1>
             <Reveal index={2}>
-              <p className="mt-6 max-w-[440px] text-[18px] leading-[1.6] text-slate-500">
-                Spaced repetition, AI-built decks, and district-grade controls — in one calm, privacy-first platform for K–12.
+              <p className="mt-6 max-w-[400px] text-[18px] leading-[1.6] text-slate-500">
+                Study smarter. Remember longer. Private by design for K–12.
               </p>
             </Reveal>
             <Reveal index={3}>
@@ -797,33 +855,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ── The science ───────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <Reveal className="mb-10">
-          <Eyebrow>The science</Eyebrow>
-          <h2 className="max-w-xl text-balance font-display text-[clamp(1.6rem,2.8vw,2.1rem)] font-bold leading-[1.15] tracking-[-0.03em] text-slate-900">
-            Flashcards aren&apos;t a trend. They&apos;re 140 years of memory research.
-          </h2>
-        </Reveal>
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-          {[
-            { n: <>1885</>, l: 'Ebbinghaus maps the forgetting curve — the science FlashMingo runs on' },
-            { n: <><Counter to={70} suffix="%" /></>, l: 'of new material is forgotten within 24 hours without review' },
-            { n: <>2×</>, l: 'better long-term retention from spaced practice vs. cramming' },
-            { n: <><Counter to={50} suffix="%+" /></>, l: 'stronger recall from active testing vs. re-reading notes' },
-          ].map((stat, i) => (
-            <Reveal key={i} index={i} className="text-center md:text-left">
-              <div className="font-display text-[44px] font-extrabold tracking-[-0.03em] text-slate-900">{stat.n}</div>
-              <p className="mt-1 text-[13.5px] leading-[1.5] text-slate-500">{stat.l}</p>
-            </Reveal>
-          ))}
-        </div>
-        <Reveal index={4}>
-          <p className="mt-10 text-[11.5px] text-slate-400">
-            Ebbinghaus (1885) · Cepeda et&nbsp;al., Psychological Bulletin (2006) · Roediger &amp; Karpicke, Psychological Science (2006)
-          </p>
-        </Reveal>
-      </section>
 
       {/* ── Why FlashMingo — narrative ────────────────────────────────── */}
       <section id="why" className="border-t border-slate-200/70 bg-[#F7F9FC] py-24">
@@ -831,7 +862,7 @@ export function LandingPage() {
           <Reveal className="mb-16 max-w-2xl">
             <Eyebrow>Why FlashMingo</Eyebrow>
             <h2 className="text-balance font-display text-[clamp(1.9rem,3.4vw,2.6rem)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900">
-              Not another study app. A system for how learning actually works.
+              Built for how memory works.
             </h2>
           </Reveal>
           <div className="flex flex-col gap-4">
@@ -874,18 +905,8 @@ export function LandingPage() {
               <br />Watch the deck build itself.
             </h2>
             <p className="max-w-sm text-[15px] leading-[1.65] text-slate-500">
-              Teachers describe what the class is studying — FlashMingo drafts a complete, structured deck in seconds. Edit anything, then publish to your classroom or the district library.
+              Describe what the class is studying. Edit anything. Publish.
             </p>
-            <ul className="mt-7 flex flex-col gap-3">
-              {['Age- and grade-appropriate wording', 'Every card fully editable before publishing', 'Free for individual teachers'].map((t) => (
-                <li key={t} className="flex items-center gap-2.5 text-[14px] text-slate-700">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0D9488]/10">
-                    <Check className="h-3 w-3 text-[#0D9488] [stroke-width:3]" />
-                  </span>
-                  {t}
-                </li>
-              ))}
-            </ul>
           </Reveal>
           <Reveal index={1}>
             <AiForge />
@@ -941,27 +962,8 @@ export function LandingPage() {
                   ))}
                 </ul>
               </div>
-              {/* stylised UI mock */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-4 flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
-                </div>
-                <div className="space-y-3">
-                  <div className="h-3 w-2/5 rounded-full bg-slate-200" />
-                  {[0, 1, 2].map((r) => (
-                    <div key={r} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-                      <div className={cn('h-8 w-8 shrink-0 rounded-lg', r === 0 ? 'bg-[#1E40AF]/15' : r === 1 ? 'bg-[#0D9488]/15' : 'bg-slate-200')} />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="h-2.5 w-3/4 rounded-full bg-slate-200" />
-                        <div className="h-2 w-1/2 rounded-full bg-slate-100" />
-                      </div>
-                      <div className="h-6 w-12 rounded-md bg-slate-100" />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* per-role UI preview */}
+              <RoleMock role={roles[activeRole].key} />
             </div>
           </div>
         </div>
@@ -982,7 +984,7 @@ export function LandingPage() {
               We show each card right before it fades.
             </h2>
             <p className="max-w-md text-[15px] leading-[1.65] text-slate-300">
-              Every review resets the forgetting curve. FlashMingo widens the gap between reviews as memory strengthens — so students spend minutes, not hours, and retain far more.
+              Reviews spread out as memory strengthens. Minutes a day — not hours.
             </p>
             <div className="mt-8 flex gap-8">
               <div>
@@ -1013,7 +1015,7 @@ export function LandingPage() {
                 Built with student privacy first.
               </h2>
               <p className="max-w-sm text-[15px] leading-[1.65] text-slate-500">
-                FlashMingo was designed for district IT from day one — not retrofitted after launch. Every layer, from auth to the database, assumes student data is sacred.
+                Designed for district IT from day one.
               </p>
               <Button asChild variant="outline" className="mt-7 h-11 rounded-xl border-slate-200 px-5 text-slate-700 hover:bg-slate-50">
                 <Link href="/privacy">Read our privacy policy<ArrowRight className="h-4 w-4" /></Link>
@@ -1044,7 +1046,6 @@ export function LandingPage() {
             <h2 className="mb-3 text-balance font-display text-[clamp(1.9rem,3.4vw,2.6rem)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900">
               Free for individuals. Priced for districts.
             </h2>
-            <p className="text-[15px] text-slate-500">No per-seat surprises. No credit card to start.</p>
           </Reveal>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Reveal index={0}>
@@ -1142,7 +1143,7 @@ export function LandingPage() {
               See FlashMingo in your district.
             </h2>
             <p className="max-w-md text-[15px] leading-[1.65] text-slate-300">
-              A 30-minute walkthrough of setup, SSO configuration, and the compliance checklist. No commitment.
+              A 30-minute walkthrough. No commitment.
             </p>
             <div className="mt-8 flex flex-col gap-3 text-[14px] text-slate-300">
               {['SSO with Google & Microsoft', 'FERPA-ready Data Processing Agreement', 'White-glove district onboarding'].map((t) => (
