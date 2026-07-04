@@ -1,12 +1,33 @@
 /** @type {import('next').NextConfig} */
+
+const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('https://', '');
+
+const securityHeaders = [
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  { key: 'X-DNS-Prefetch-Control', value: 'on' },
+];
+
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
+  serverExternalPackages: ['@supabase/supabase-js'],
+  outputFileTracingRoot: import.meta.dirname,
   images: {
-    domains: ['localhost', process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('https://', '') || ''],
+    remotePatterns: [
+      ...(supabaseHost ? [{ protocol: 'https', hostname: supabaseHost }] : []),
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' }, // Google avatars
+    ],
   },
-  experimental: {
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
+  async redirects() {
+    return [
+      { source: '/privacy-policy',   destination: '/privacy', permanent: true },
+      { source: '/terms-of-service', destination: '/terms',   permanent: true },
+    ];
+  },
+  async headers() {
+    return [{ source: '/(.*)', headers: securityHeaders }];
   },
 };
 

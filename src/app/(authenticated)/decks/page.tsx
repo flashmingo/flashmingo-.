@@ -217,8 +217,8 @@ export default function DecksPage() {
 
       {/* Table */}
       {!isLoading && filtered.length > 0 && (
-        <div className="rounded-2xl border border-border bg-white overflow-hidden shadow-card">
-          <table className="w-full text-sm">
+        <div className="rounded-2xl border border-border bg-white overflow-x-auto shadow-card">
+          <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-border bg-[#F9F6F0]">
                 <th className="py-2.5 pl-4 pr-3 text-left"><ColHeader label="Deck" active={sortField==='name'} dir={sortDir} onClick={() => handleSort('name')} /></th>

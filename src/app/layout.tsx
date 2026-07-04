@@ -1,22 +1,33 @@
 import type { Metadata, Viewport } from 'next';
+import { Analytics } from '@vercel/analytics/react';
 import '../styles/globals.css';
 import { Providers } from '@/components/providers';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
-    default: 'FlashMingo — Secure Flashcard Platform for Schools',
+    default: 'FlashMingo — Learning that sticks',
     template: '%s | FlashMingo',
   },
   description:
-    'FlashMingo is a privacy-first flashcard and study platform for K–12 schools. Built for districts that require FERPA compliance, student data minimization, and enterprise control.',
-  keywords: ['flashcards', 'spaced repetition', 'education', 'K-12', 'FERPA', 'school'],
+    'The flashcard platform built for schools. AI deck generation, spaced repetition, and classroom tools in one FERPA-compliant platform.',
+  keywords: ['flashcards', 'spaced repetition', 'education', 'K-12', 'FERPA', 'school', 'AI study tools'],
   authors: [{ name: 'FlashMingo' }],
-  robots: { index: false, follow: false }, // Private platform — no indexing
+  robots: { index: true, follow: true },
+  alternates: { canonical: '/' },
   openGraph: {
-    title: 'FlashMingo — Secure Flashcard Platform for Schools',
-    description: 'Privacy-first flashcard study tool for K–12 districts.',
+    title: 'FlashMingo — Learning that sticks',
+    description: 'AI flashcards, spaced repetition, and classroom tools for K–12 districts.',
+    url: siteUrl,
     type: 'website',
     siteName: 'FlashMingo',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'FlashMingo — Learning that sticks',
+    description: 'AI flashcards, spaced repetition, and classroom tools for K–12 districts.',
   },
 };
 
@@ -31,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );

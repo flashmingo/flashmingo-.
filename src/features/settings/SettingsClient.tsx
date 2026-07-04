@@ -11,6 +11,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Switch } from '@/components/ui/Switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
 import { formatDate } from '@/lib/utils';
@@ -51,6 +52,7 @@ export function SettingsClient({ profile, email }: Props) {
   const [signOutLoading, setSignOutLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const initials = (profile?.full_name ?? 'U')
     .split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
@@ -74,9 +76,6 @@ export function SettingsClient({ profile, email }: Props) {
   };
 
   const handleDeleteData = async () => {
-    const confirmed = window.confirm('This will request deletion of your account and related data. Continue?');
-    if (!confirmed) return;
-
     setDeleteLoading(true);
     setDeleteMessage(null);
 
@@ -89,6 +88,7 @@ export function SettingsClient({ profile, email }: Props) {
       setDeleteMessage(error instanceof Error ? error.message : 'Unable to delete data.');
     } finally {
       setDeleteLoading(false);
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -190,8 +190,8 @@ export function SettingsClient({ profile, email }: Props) {
           under <strong className="text-foreground">FERPA</strong>.
         </p>
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
-          <Link href="/privacy-policy" className="text-primary underline-offset-4 hover:underline">Privacy Policy</Link>
-          <Link href="/terms-of-service" className="text-primary underline-offset-4 hover:underline">Terms of Service</Link>
+          <Link href="/privacy" className="text-primary underline-offset-4 hover:underline">Privacy Policy</Link>
+          <Link href="/terms" className="text-primary underline-offset-4 hover:underline">Terms of Service</Link>
         </div>
       </div>
 
@@ -201,7 +201,7 @@ export function SettingsClient({ profile, email }: Props) {
           variant="outline"
           size="sm"
           className="border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50"
-          onClick={handleDeleteData}
+          onClick={() => setDeleteDialogOpen(true)}
           disabled={deleteLoading}
         >
           {deleteLoading ? 'Processing…' : 'Delete my data'}
@@ -232,6 +232,17 @@ export function SettingsClient({ profile, email }: Props) {
           {signOutLoading ? 'Signing out…' : 'Sign out'}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Request account data deletion"
+        description="This submits a FERPA deletion request for your account. Your decks, cards, study history, and progress will be permanently removed. This cannot be undone."
+        confirmLabel="Request deletion"
+        typeToConfirm="DELETE"
+        loading={deleteLoading}
+        onConfirm={handleDeleteData}
+      />
     </div>
   );
 }

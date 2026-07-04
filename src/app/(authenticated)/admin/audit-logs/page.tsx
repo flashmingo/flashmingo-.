@@ -232,13 +232,13 @@ export default function AuditLogsPage() {
 
       {/* Table */}
       {!isLoading && (
-        <div className="rounded-xl border border-border bg-white overflow-hidden shadow-card">
+        <div className="rounded-xl border border-border bg-white overflow-x-auto shadow-card">
           {filtered.length === 0 ? (
             <div className="py-16 text-center text-sm text-muted-foreground">
               No audit logs found.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/20">
                   <th className="py-2.5 pl-4 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Action</th>

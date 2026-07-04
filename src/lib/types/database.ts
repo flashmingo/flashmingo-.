@@ -141,6 +141,31 @@ export type Database = {
         Relationships: [];
       };
 
+      demo_requests: {
+        Row: {
+          id: string;
+          name: string;
+          email: string;
+          school: string;
+          use_case: string | null;
+          status: 'new' | 'contacted' | 'closed';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          email: string;
+          school: string;
+          use_case?: string | null;
+          status?: 'new' | 'contacted' | 'closed';
+          created_at?: string;
+        };
+        Update: {
+          status?: 'new' | 'contacted' | 'closed';
+        };
+        Relationships: [];
+      };
+
       decks: {
         Row: {
           id: string;

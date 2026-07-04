@@ -9,6 +9,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
@@ -212,11 +213,15 @@ export default function AdminUsersPage({
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
 
-  const handleDelete = (id: string, name: string) => {
-    if (!window.confirm(
-      `FERPA Data Deletion\n\nPermanently delete all data for "${name}"?\n\nThis cannot be undone. All decks, cards, study sessions, and progress will be erased.`
-    )) return;
-    deleteMutation.mutate(id);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  const handleDelete = (id: string, name: string) => setDeleteTarget({ id, name });
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget.id, {
+      onSettled: () => setDeleteTarget(null),
+    });
   };
 
   const filtered = users.filter((u) =>
@@ -308,13 +313,13 @@ export default function AdminUsersPage({
 
       {/* Table */}
       {!isLoading && (
-        <div className="rounded-xl border border-border bg-white overflow-hidden shadow-card">
+        <div className="rounded-xl border border-border bg-white overflow-x-auto shadow-card">
           {filtered.length === 0 ? (
             <div className="py-16 text-center text-sm text-muted-foreground">
               No users match your filters.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/20">
                   <th className="py-2.5 pl-4 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">User</th>
@@ -339,6 +344,24 @@ export default function AdminUsersPage({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="FERPA data deletion"
+        description={
+          <>
+            Permanently delete all data for{' '}
+            <span className="font-semibold text-foreground">{deleteTarget?.name}</span>?
+            {' '}All decks, cards, study sessions, and progress will be erased.
+            This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete all data"
+        typeToConfirm="DELETE"
+        loading={deleteMutation.isPending}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

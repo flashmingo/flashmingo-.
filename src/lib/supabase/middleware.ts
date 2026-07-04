@@ -39,7 +39,13 @@ export async function updateSession(request: NextRequest) {
     pathname === '/terms' ||
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/api/auth/') ||
-    pathname === '/api/demo-request';
+    pathname === '/api/demo-request' ||
+    // SEO / PWA assets served by the app router
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml' ||
+    pathname === '/manifest.webmanifest' ||
+    pathname === '/icon.svg' ||
+    pathname === '/opengraph-image';
 
   if (!user && !isPublicRoute) {
     // API routes get a JSON 401, not an HTML redirect

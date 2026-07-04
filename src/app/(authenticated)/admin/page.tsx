@@ -170,7 +170,7 @@ export default function AdminPage() {
       </div>
 
       {/* 7-day activity */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-white p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Sessions (7d)</p>
           <p className="text-2xl font-bold text-foreground tabular-nums">{stats.activity.sessions7d}</p>

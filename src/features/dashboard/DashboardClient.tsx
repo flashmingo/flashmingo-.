@@ -139,7 +139,7 @@ function StatCard({
       initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
       transition={{ ...spring, delay }}
       whileHover={{ y: -3, boxShadow: '0 10px 28px -6px rgba(15,23,42,0.11)' }}
-      className="flex flex-col justify-between rounded-2xl border border-[#E5E7EB] bg-white p-5"
+      className="flex flex-col justify-between rounded-2xl border border-[#E5E7EB] bg-white p-4 sm:p-5"
       style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}
     >
       <div className="flex items-start justify-between">
@@ -147,13 +147,13 @@ function StatCard({
           <Icon className={cn('h-[18px] w-[18px]', iconColor)} />
         </span>
         {badge && (
-          <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10.5px] font-semibold text-orange-500">
+          <span className="hidden rounded-full bg-orange-50 px-2 py-0.5 text-[10.5px] font-semibold text-orange-500 sm:inline">
             {badge}
           </span>
         )}
       </div>
       <div className="mt-5">
-        <p className="font-display text-[34px] font-bold leading-none tracking-[-0.035em] text-slate-900 tabular-nums">
+        <p className="font-display text-[26px] font-bold leading-none tracking-[-0.035em] text-slate-900 tabular-nums sm:text-[34px]">
           <AnimatedNumber value={value} delay={delay * 1000} />
         </p>
         <p className="mt-1.5 text-[12.5px] font-medium text-slate-500">{label}</p>
@@ -320,7 +320,7 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
 
   return (
     <div className="min-h-full bg-[#F8FAFC]">
-      <div className="mx-auto max-w-5xl px-8 py-9 md:px-10 md:py-10">
+      <div className="mx-auto max-w-5xl px-5 py-7 sm:px-8 md:px-10 md:py-10">
         <motion.div variants={pageVariants} initial="hidden" animate="show" className="flex flex-col gap-7">
 
           {/* ── Greeting ─────────────────────────────────────────────────── */}
@@ -368,7 +368,7 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
 
           {/* ── Stat cards ───────────────────────────────────────────────── */}
           {isApproved && (
-            <motion.div variants={sectionVariants} className="grid grid-cols-3 gap-4">
+            <motion.div variants={sectionVariants} className="grid grid-cols-3 gap-2.5 sm:gap-4">
               {statsLoading ? (
                 [0,1,2].map((i) => <Skeleton key={i} className="h-[118px] rounded-2xl" />)
               ) : isError ? (
@@ -446,7 +446,7 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
             <motion.div variants={sectionVariants}>
               <SectionLabel>Jump back in</SectionLabel>
               {decksLoading ? (
-                <div className="grid grid-cols-3 gap-4 pr-2.5">
+                <div className="grid grid-cols-1 gap-4 pr-2.5 sm:grid-cols-2 md:grid-cols-3">
                   {[0,1,2].map((i) => <Skeleton key={i} className="h-[148px] rounded-2xl" />)}
                 </div>
               ) : (

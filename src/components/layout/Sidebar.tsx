@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   BookOpen,
-  Brain,
   Users,
   Settings,
   ShieldCheck,
@@ -53,7 +52,7 @@ const adminNav: NavItem[] = [
 ];
 
 /* ─── Individual link ─────────────────────────────── */
-function NavLink({ href, label, icon: Icon, disabled }: NavItem) {
+function NavLink({ href, label, icon: Icon, disabled, onNavigate }: NavItem & { onNavigate?: () => void }) {
   const pathname = usePathname();
   const isActive =
     pathname === href ||
@@ -62,7 +61,7 @@ function NavLink({ href, label, icon: Icon, disabled }: NavItem) {
 
   if (disabled) {
     return (
-      <div className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground/30 cursor-not-allowed">
+      <div className="flex cursor-not-allowed items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground/30">
         <Icon className="h-4 w-4 shrink-0" />
         <span className="flex-1">{label}</span>
         <span className="text-[9px] font-semibold uppercase tracking-widest opacity-40">Soon</span>
@@ -73,8 +72,9 @@ function NavLink({ href, label, icon: Icon, disabled }: NavItem) {
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       className={cn(
-        'flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-100',
+        'flex min-h-[40px] items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-100',
         isActive
           ? 'bg-white/10 text-white'
           : 'text-sidebar-foreground hover:bg-white/6 hover:text-white'
@@ -83,7 +83,7 @@ function NavLink({ href, label, icon: Icon, disabled }: NavItem) {
     >
       <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-white' : 'text-sidebar-foreground/60')} />
       <span className="flex-1">{label}</span>
-      {isActive && <span className="h-1.5 w-1.5 rounded-full bg-[#FBBF24] shrink-0" />}
+      {isActive && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />}
     </Link>
   );
 }
@@ -91,14 +91,16 @@ function NavLink({ href, label, icon: Icon, disabled }: NavItem) {
 /* ─── Section header ───────────────────────────────── */
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/35">
+    <p className="px-3 pb-1 pt-5 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/35">
       {children}
     </p>
   );
 }
 
-/* ─── Sidebar ──────────────────────────────────────── */
-export default function Sidebar() {
+/* ─── Shared sidebar content ───────────────────────────
+   Rendered inside both the desktop aside and the mobile
+   drawer. `onNavigate` lets the drawer close on click.  */
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { isTeacher, isAdmin } = useRole();
   const { profile, user } = useAuth();
 
@@ -111,9 +113,9 @@ export default function Sidebar() {
     .toUpperCase();
 
   return (
-    <aside className="flex h-full w-[220px] flex-col border-r border-sidebar-border bg-sidebar">
+    <div className="flex h-full flex-col" style={{ background: 'hsl(224 44% 11%)' }}>
       {/* Logo */}
-      <div className="flex h-14 shrink-0 items-center px-4 border-b border-sidebar-border">
+      <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border px-4">
         <FlashMingoLogo showText className="h-7" />
       </div>
 
@@ -121,19 +123,19 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-2 py-2" aria-label="Main navigation">
         <SectionLabel>Study</SectionLabel>
         <div className="space-y-0.5">
-          {studyNav.map((item) => <NavLink key={item.href} {...item} />)}
+          {studyNav.map((item) => <NavLink key={item.href} {...item} onNavigate={onNavigate} />)}
         </div>
 
         <SectionLabel>Explore</SectionLabel>
         <div className="space-y-0.5">
-          {exploreNav.map((item) => <NavLink key={item.href} {...item} />)}
+          {exploreNav.map((item) => <NavLink key={item.href} {...item} onNavigate={onNavigate} />)}
         </div>
 
         {isTeacher && (
           <>
             <SectionLabel>Teacher</SectionLabel>
             <div className="space-y-0.5">
-              {teacherNav.map((item) => <NavLink key={item.href} {...item} />)}
+              {teacherNav.map((item) => <NavLink key={item.href} {...item} onNavigate={onNavigate} />)}
             </div>
           </>
         )}
@@ -142,7 +144,7 @@ export default function Sidebar() {
           <>
             <SectionLabel>Admin</SectionLabel>
             <div className="space-y-0.5">
-              {adminNav.map((item) => <NavLink key={item.href} {...item} />)}
+              {adminNav.map((item) => <NavLink key={item.href} {...item} onNavigate={onNavigate} />)}
             </div>
           </>
         )}
@@ -150,7 +152,7 @@ export default function Sidebar() {
 
       {/* Settings */}
       <div className="border-t border-sidebar-border px-2 py-2">
-        <NavLink href="/settings" label="Settings" icon={Settings} />
+        <NavLink href="/settings" label="Settings" icon={Settings} onNavigate={onNavigate} />
       </div>
 
       {/* User profile */}
@@ -158,19 +160,28 @@ export default function Sidebar() {
         <div className="flex items-center gap-2.5">
           <Avatar className="h-7 w-7 shrink-0">
             <AvatarImage src={profile?.avatar_url ?? user?.user_metadata?.avatar_url} />
-            <AvatarFallback className="bg-[#FBBF24] text-[#1E3A8A] text-xs font-bold">
+            <AvatarFallback className="bg-blue-800 text-xs font-semibold text-white">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[12px] font-medium text-white leading-none">{displayName}</p>
-            <p className="truncate text-[11px] text-sidebar-foreground/50 mt-0.5 capitalize">
+            <p className="truncate text-[12px] font-medium leading-none text-white">{displayName}</p>
+            <p className="mt-0.5 truncate text-[11px] capitalize text-sidebar-foreground/50">
               {profile?.role ?? 'Student'}
             </p>
           </div>
-          <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/30 shrink-0" />
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/30" />
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── Desktop sidebar ──────────────────────────────── */
+export default function Sidebar() {
+  return (
+    <aside className="hidden h-full w-[220px] shrink-0 border-r border-sidebar-border md:block">
+      <SidebarContent />
     </aside>
   );
 }
