@@ -35,14 +35,14 @@ const narrative = [
     tone: 'teal' as const,
     icon: Sparkles,
     title: 'Decks built in seconds',
-    body: 'Describe a topic — get a full, editable deck.',
+    body: 'Describe a topic. Get a full, editable deck.',
   },
   {
     n: '03',
     tone: 'blue' as const,
     icon: LineChart,
     title: 'Progress you can act on',
-    body: 'Streaks, accuracy, and who needs help — at a glance.',
+    body: 'Streaks, accuracy, and who needs help. All at a glance.',
   },
 ];
 
@@ -567,7 +567,7 @@ function RoleMock({ role }: { role: 'student' | 'teacher' | 'admin' }) {
 /* ───────────────────────── AI forge — interactive ────────────────────── */
 const forgeTopics = [
   {
-    prompt: 'Photosynthesis — 8th grade',
+    prompt: 'Photosynthesis, 8th grade',
     tag: 'Biology',
     cards: ['What are the two stages of photosynthesis?', 'Where does the Calvin cycle take place?', 'Which gas do plants absorb from the air?', 'Chlorophyll absorbs which colors of light?'],
   },
@@ -681,14 +681,14 @@ function AiForge() {
             onKeyDown={(e) => { if (e.key === 'Enter') generate(); }}
             placeholder="Type any topic… e.g. the water cycle"
             maxLength={60}
-            className="min-w-0 flex-1 bg-transparent font-mono text-[14.5px] text-slate-800 placeholder:text-slate-400 focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent font-display text-[14.5px] font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:outline-none"
             aria-label="Topic for your deck"
           />
         ) : (
           <button
             type="button"
             onClick={() => { setMode('user'); setShowCards(false); }}
-            className="min-w-0 flex-1 truncate text-left font-mono text-[14.5px] text-slate-800"
+            className="min-w-0 flex-1 truncate text-left font-display text-[14.5px] font-medium text-slate-800"
             aria-label="Type your own topic"
           >
             {typed}
@@ -856,6 +856,15 @@ export function LandingPage() {
         t.style.setProperty('--cy', `${e.clientY}px`);
       }}
     >
+      {/* full-page cursor-tracked blue glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-0 hidden lg:block"
+        style={{
+          background: 'radial-gradient(520px circle at var(--cx,50%) var(--cy,40%), rgba(30,64,175,0.07), transparent 65%)',
+          transition: 'background .05s linear',
+        }}
+      />
       <ScrollProgress />
 
       {/* ── Nav ───────────────────────────────────────────────────────── */}

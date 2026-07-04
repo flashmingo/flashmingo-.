@@ -1,27 +1,20 @@
 'use client';
 
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { motion, animate, useMotionValue, AnimatePresence } from 'framer-motion';
 import {
-  BookOpen, Brain, GraduationCap, ArrowRight, Clock,
-  Zap, Flame, Trophy, Globe, BarChart2,
+  BookOpen, Brain, GraduationCap, Globe, Trophy, Zap, Flame,
+  BarChart2, ArrowUpRight, Clock, ChevronRight,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { Button } from '@/components/ui/Button';
+import { getGreeting, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { getGreeting } from '@/lib/utils';
 import type { Profile } from '@/lib/types';
-import { cn } from '@/lib/utils';
 
-interface QuickAction {
-  label: string;
-  description: string;
-  icon: React.ElementType;
-  href?: string;
-  disabled?: boolean;
-  iconColor: string;
-  iconBg: string;
-}
-
+/* ─────────────────────────────────────────────────────────────────────────────
+   Types
+   ───────────────────────────────────────────────────────────────────────────── */
 interface UserStats {
   streak: number;
   totalSessions: number;
@@ -29,226 +22,591 @@ interface UserStats {
   activity30d: Array<{ date: string; cards: number }>;
 }
 
-function QuickActionCard({
-  label, description, icon: Icon, href, disabled, iconColor, iconBg,
-}: QuickAction) {
-  const inner = (
-    <div
-      className={cn(
-        'group flex items-start gap-4 rounded-xl border border-border bg-white p-5',
-        'transition-all duration-150',
-        disabled
-          ? 'opacity-50 cursor-not-allowed'
-          : 'hover:border-slate-300 hover:shadow-md cursor-pointer'
-      )}
+/* ─────────────────────────────────────────────────────────────────────────────
+   Animation spring preset — used throughout for consistency
+   ───────────────────────────────────────────────────────────────────────────── */
+const spring = { type: 'spring' as const, stiffness: 340, damping: 28 };
+const springFast = { type: 'spring' as const, stiffness: 420, damping: 30 };
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Animated number counter — framer-motion eased count-up
+   ───────────────────────────────────────────────────────────────────────────── */
+function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number }) {
+  const mv = useMotionValue(0);
+  const [display, setDisplay] = useState('0');
+
+  useEffect(() => {
+    const unsub = mv.on('change', (v) => setDisplay(Math.round(v).toLocaleString()));
+    const timer = window.setTimeout(() => {
+      const ctrl = animate(mv, value, { duration: 1.35, ease: [0.16, 1, 0.3, 1] });
+      return () => ctrl.stop();
+    }, delay);
+    return () => { window.clearTimeout(timer); unsub(); };
+  }, [value, delay, mv]);
+
+  return <>{display}</>;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Circular progress ring — smooth RAF animation, no jank
+   ───────────────────────────────────────────────────────────────────────────── */
+function ProgressRing({
+  value,
+  max,
+  size = 96,
+  strokeWidth = 7,
+  color = '#1E40AF',
+}: {
+  value: number;
+  max: number;
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+}) {
+  const [pct, setPct] = useState(0);
+  const rafRef = useRef<number>(0);
+  const r = (size - strokeWidth) / 2;
+  const circ = 2 * Math.PI * r;
+
+  useEffect(() => {
+    const target = Math.min(value / Math.max(max, 1), 1);
+    let start: number | null = null;
+    const run = (ts: number) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / 1500, 1);
+      const ease = 1 - Math.pow(1 - p, 4);
+      setPct(ease * target);
+      if (p < 1) rafRef.current = requestAnimationFrame(run);
+    };
+    rafRef.current = requestAnimationFrame(run);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value, max]);
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ transform: 'rotate(-90deg)' }}
+      aria-hidden
     >
-      <div className={cn('mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', iconBg)}>
-        <Icon className={cn('h-4 w-4', iconColor)} />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke="#EFF2F5" strokeWidth={strokeWidth}
+      />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke={color} strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={circ * (1 - pct)}
+      />
+    </svg>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   30-day activity heatmap — staggered spring entrance
+   ───────────────────────────────────────────────────────────────────────────── */
+const heatColors = [
+  'bg-slate-100',
+  'bg-[#1E40AF]/18',
+  'bg-[#1E40AF]/38',
+  'bg-[#1E40AF]/62',
+  'bg-[#1E40AF]',
+] as const;
+
+function ActivityHeatmap({ data }: { data: Array<{ date: string; cards: number }> }) {
+  const max = Math.max(...data.map((d) => d.cards), 1);
+
+  const slot = (cards: number): 0 | 1 | 2 | 3 | 4 => {
+    if (cards === 0) return 0;
+    const r = cards / max;
+    if (r < 0.25) return 1;
+    if (r < 0.5) return 2;
+    if (r < 0.75) return 3;
+    return 4;
+  };
+
+  return (
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.014, delayChildren: 0.1 } } }}
+      className="grid gap-[3.5px]"
+      style={{ gridTemplateColumns: 'repeat(30, 1fr)' }}
+    >
+      {data.map(({ date, cards }) => (
+        <motion.div
+          key={date}
+          variants={{
+            hidden: { opacity: 0, scale: 0.5 },
+            show: { opacity: 1, scale: 1, transition: { ...springFast } },
+          }}
+          className={cn('aspect-square rounded-[3px] cursor-default', heatColors[slot(cards)])}
+          title={`${date}: ${cards} card${cards !== 1 ? 's' : ''}`}
+        />
+      ))}
+    </motion.div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Stat card — lifts on hover, animated counter on mount
+   ───────────────────────────────────────────────────────────────────────────── */
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  iconColor,
+  iconBg,
+  badge,
+  delay = 0,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: number;
+  iconColor: string;
+  iconBg: string;
+  badge?: string;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...spring, delay }}
+      whileHover={{ y: -3, boxShadow: '0 10px 28px -6px rgba(15,23,42,0.11)' }}
+      className="flex flex-col justify-between rounded-2xl border border-[#E5E7EB] bg-white p-5"
+      style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}
+    >
+      <div className="flex items-start justify-between">
+        <span className={cn('flex h-9 w-9 items-center justify-center rounded-xl', iconBg)}>
+          <Icon className={cn('h-[18px] w-[18px]', iconColor)} />
+        </span>
+        {badge && (
+          <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10.5px] font-semibold text-orange-500">
+            {badge}
+          </span>
+        )}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground">{label}</p>
-        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
+      <div className="mt-5">
+        <p className="font-display text-[34px] font-bold leading-none tracking-[-0.035em] text-slate-900 tabular-nums">
+          <AnimatedNumber value={value} delay={delay * 1000} />
+        </p>
+        <p className="mt-1.5 text-[12.5px] font-medium text-slate-500">{label}</p>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Action card — horizontal layout, spring hover
+   ───────────────────────────────────────────────────────────────────────────── */
+function ActionCard({
+  label,
+  description,
+  href,
+  icon: Icon,
+  iconColor,
+  iconBg,
+  disabled = false,
+  delay = 0,
+}: {
+  label: string;
+  description: string;
+  href?: string;
+  icon: React.ElementType;
+  iconColor: string;
+  iconBg: string;
+  disabled?: boolean;
+  delay?: number;
+}) {
+  const card = (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...spring, delay }}
+      whileHover={!disabled ? { y: -2, boxShadow: '0 10px 28px -6px rgba(15,23,42,0.11)' } : {}}
+      whileTap={!disabled ? { scale: 0.985 } : {}}
+      className={cn(
+        'group flex items-center gap-4 rounded-2xl border border-[#E5E7EB] bg-white p-4 transition-colors duration-150',
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-slate-300',
+      )}
+      style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}
+    >
+      <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', iconBg)}>
+        <Icon className={cn('h-5 w-5', iconColor)} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13.5px] font-semibold text-slate-900">{label}</p>
+        <p className="mt-0.5 text-[12px] leading-[1.45] text-slate-500">{description}</p>
       </div>
       {!disabled && (
-        <ArrowRight className="h-4 w-4 text-muted-foreground/30 mt-0.5 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground/60" />
+        <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-300 transition-all duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-slate-500" />
       )}
-    </div>
+    </motion.div>
   );
-  if (href && !disabled) return <Link href={href}>{inner}</Link>;
-  return inner;
+
+  if (href && !disabled) return <Link href={href} className="block">{card}</Link>;
+  return <div>{card}</div>;
 }
 
-/** 30-day activity sparkline */
-function ActivityGrid({ data }: { data: Array<{ date: string; cards: number }> }) {
-  const max = Math.max(...data.map((d) => d.cards), 1);
+/* ─────────────────────────────────────────────────────────────────────────────
+   Section label — consistent, quiet
+   ───────────────────────────────────────────────────────────────────────────── */
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-end gap-0.5 h-8">
-      {data.map(({ date, cards }) => {
-        const height = cards === 0 ? 3 : Math.max(6, Math.round((cards / max) * 32));
-        return (
-          <div
-            key={date}
-            title={`${date}: ${cards} cards`}
-            className={cn(
-              'flex-1 rounded-sm transition-colors',
-              cards === 0 ? 'bg-muted' : 'bg-primary/60 hover:bg-primary'
-            )}
-            style={{ height: `${height}px` }}
-          />
-        );
-      })}
-    </div>
+    <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+      {children}
+    </p>
   );
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Page-level stagger container
+   ───────────────────────────────────────────────────────────────────────────── */
+const pageVariants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.02 } },
+};
+const sectionVariants = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { ...spring } },
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DashboardClient — the page
+   ───────────────────────────────────────────────────────────────────────────── */
 export function DashboardClient({ profile }: { profile: Profile | null }) {
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
   const today = new Date();
-  const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
-  const dateStr = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  const todayKey = today.toISOString().slice(0, 10);
+  const dayStr = today.toLocaleDateString('en-US', { weekday: 'long' });
+  const dateStr = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  const { data: stats, isLoading: statsLoading } = useQuery<UserStats>({
+  const isApproved = profile?.account_status === 'approved';
+  const isTeacherOrAdmin = profile?.role === 'teacher' || profile?.role === 'administrator';
+
+  /* ── Stats query ── */
+  const { data: stats, isLoading, isError } = useQuery<UserStats>({
     queryKey: ['user-stats'],
     queryFn: async () => {
       const res = await fetch('/api/stats');
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      if (!res.ok) throw new Error(json.error ?? 'Failed to load stats');
       return json.data;
     },
-    enabled: profile?.account_status === 'approved',
+    enabled: isApproved,
+    staleTime: 60_000,
   });
 
-  const actions: QuickAction[] = [
+  /* ── Derived values ── */
+  const todayCards = stats?.activity30d?.find((d) => d.date === todayKey)?.cards ?? 0;
+  const weekCards = stats?.activity30d?.slice(-7).reduce((s, d) => s + d.cards, 0) ?? 0;
+  const dailyGoal = 20;
+  const goalPct = Math.min(Math.round((todayCards / dailyGoal) * 100), 100);
+
+  /* ── Quick actions ── */
+  const primaryActions = [
     {
       label: 'My Decks',
-      description: 'Create and organize your flashcard collections',
-      icon: BookOpen,
+      description: 'Create and organise your flashcard collections',
       href: '/decks',
-      iconColor: 'text-blue-600',
-      iconBg: 'bg-blue-50',
+      icon: BookOpen,
+      iconColor: 'text-[#1E40AF]',
+      iconBg: 'bg-[#1E40AF]/8',
     },
     {
-      label: 'Study',
-      description: 'Review cards with spaced repetition',
-      icon: Brain,
+      label: 'Study Now',
+      description: 'Start a spaced repetition session',
       href: '/study',
-      iconColor: 'text-teal-600',
-      iconBg: 'bg-teal-50',
+      icon: Brain,
+      iconColor: 'text-[#0D9488]',
+      iconBg: 'bg-[#0D9488]/8',
     },
     {
       label: 'Classrooms',
       description: 'Join or manage classroom groups',
-      icon: GraduationCap,
       href: '/classrooms',
+      icon: GraduationCap,
       iconColor: 'text-violet-600',
       iconBg: 'bg-violet-50',
     },
     {
       label: 'Browse',
-      description: 'Explore public decks shared by your district',
-      icon: Globe,
+      description: 'Explore public decks from your district',
       href: '/browse',
+      icon: Globe,
       iconColor: 'text-slate-600',
       iconBg: 'bg-slate-100',
     },
   ];
 
+  const secondaryActions = [
+    {
+      label: 'Leaderboard',
+      description: 'Top students this month',
+      href: '/leaderboard',
+      icon: Trophy,
+      iconColor: 'text-amber-500',
+      iconBg: 'bg-amber-50',
+    },
+    ...(isTeacherOrAdmin
+      ? [{
+          label: 'Teacher Dashboard',
+          description: 'Class progress and student activity',
+          href: '/teacher',
+          icon: Zap,
+          iconColor: 'text-slate-600',
+          iconBg: 'bg-slate-100',
+        }]
+      : []),
+  ];
+
   return (
-    <div className="p-6 md:p-8 max-w-2xl space-y-8">
-      {/* Page header */}
-      <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-          {dayName}, {dateStr}
-        </p>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">
-          {getGreeting()}, {firstName}.
-        </h1>
-      </div>
+    <div className="min-h-full bg-[#F8FAFC]">
+      <div className="mx-auto max-w-5xl px-8 py-9 md:px-10 md:py-10">
+        <motion.div
+          variants={pageVariants}
+          initial="hidden"
+          animate="show"
+          className="flex flex-col gap-7"
+        >
 
-      {/* Pending approval notice */}
-      {profile?.account_status === 'pending' && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <Clock className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
-          <p>
-            <span className="font-semibold">Account pending approval.</span>
-            {' '}Your administrator will review your account soon.
-          </p>
-        </div>
-      )}
+          {/* ══ Greeting ══════════════════════════════════════════════════════ */}
+          <motion.div variants={sectionVariants} className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[12.5px] font-medium text-slate-400">
+                {dayStr} · {dateStr}
+              </p>
+              <h1 className="mt-1.5 font-display text-[clamp(1.7rem,2.8vw,2.2rem)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900">
+                {getGreeting()}, {firstName}.
+              </h1>
+            </div>
 
-      {/* Stats row */}
-      {profile?.account_status === 'approved' && (
-        <div className="grid grid-cols-3 gap-3">
-          {statsLoading ? (
-            [...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
-          ) : (
-            <>
-              {/* Streak */}
-              <div className="rounded-xl border border-border bg-white p-4 flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Flame className={cn('h-3.5 w-3.5', stats && stats.streak > 0 ? 'text-orange-500' : 'text-muted-foreground')} />
-                  Streak
+            <AnimatePresence>
+              {isApproved && !isLoading && stats && stats.streak > 0 && (
+                <motion.div
+                  key="streak-badge"
+                  initial={{ opacity: 0, scale: 0.75, x: 12 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.75 }}
+                  transition={{ ...spring, delay: 0.6 }}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-orange-200/80 bg-orange-50 px-3 py-1.5"
+                >
+                  <Flame className="h-3.5 w-3.5 text-orange-500" />
+                  <span className="text-[12px] font-semibold text-orange-600">
+                    {stats.streak}-day streak
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* ══ Pending notice ════════════════════════════════════════════════ */}
+          <AnimatePresence>
+            {profile?.account_status === 'pending' && (
+              <motion.div
+                key="pending"
+                variants={sectionVariants}
+                exit={{ opacity: 0, y: -8 }}
+                className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4"
+              >
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                <div>
+                  <p className="text-[13.5px] font-semibold text-amber-800">Account pending approval</p>
+                  <p className="mt-0.5 text-[12.5px] text-amber-700">
+                    Your district administrator will review your account and grant access soon.
+                  </p>
                 </div>
-                <p className="text-2xl font-bold text-foreground tabular-nums">
-                  {stats?.streak ?? 0}
-                  <span className="text-sm font-medium text-muted-foreground ml-1">d</span>
-                </p>
-              </div>
-              {/* Sessions */}
-              <div className="rounded-xl border border-border bg-white p-4 flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <BarChart2 className="h-3.5 w-3.5" />
-                  Sessions
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ══ Stats row ═════════════════════════════════════════════════════ */}
+          {isApproved && (
+            <motion.div variants={sectionVariants} className="grid grid-cols-3 gap-4">
+              {isLoading ? (
+                <>
+                  {[0, 1, 2].map((i) => (
+                    <Skeleton key={i} className="h-[118px] rounded-2xl" />
+                  ))}
+                </>
+              ) : isError ? (
+                <div className="col-span-3 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-[13px] text-red-600">
+                  Could not load your stats. Refresh to try again.
                 </div>
-                <p className="text-2xl font-bold text-foreground tabular-nums">
-                  {stats?.totalSessions ?? 0}
-                </p>
-              </div>
-              {/* Cards */}
-              <div className="rounded-xl border border-border bg-white p-4 flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Brain className="h-3.5 w-3.5" />
-                  Cards
-                </div>
-                <p className="text-2xl font-bold text-foreground tabular-nums">
-                  {(stats?.totalCards ?? 0).toLocaleString()}
-                </p>
-              </div>
-            </>
+              ) : (
+                <>
+                  <StatCard
+                    icon={Flame}
+                    label="Day streak"
+                    value={stats?.streak ?? 0}
+                    iconColor={stats && stats.streak > 0 ? 'text-orange-500' : 'text-slate-400'}
+                    iconBg={stats && stats.streak > 0 ? 'bg-orange-50' : 'bg-slate-100'}
+                    badge={stats && stats.streak >= 7 ? `${stats.streak}🔥` : undefined}
+                    delay={0.05}
+                  />
+                  <StatCard
+                    icon={BarChart2}
+                    label="Sessions completed"
+                    value={stats?.totalSessions ?? 0}
+                    iconColor="text-[#1E40AF]"
+                    iconBg="bg-[#1E40AF]/8"
+                    delay={0.12}
+                  />
+                  <StatCard
+                    icon={Brain}
+                    label="Cards reviewed"
+                    value={stats?.totalCards ?? 0}
+                    iconColor="text-[#0D9488]"
+                    iconBg="bg-[#0D9488]/8"
+                    delay={0.19}
+                  />
+                </>
+              )}
+            </motion.div>
           )}
-        </div>
-      )}
 
-      {/* 30-day activity */}
-      {profile?.account_status === 'approved' && stats?.activity30d && stats.activity30d.length > 0 && (
-        <div className="rounded-xl border border-border bg-white p-4">
-          <p className="text-xs font-medium text-muted-foreground mb-3">30-day activity</p>
-          <ActivityGrid data={stats.activity30d} />
-        </div>
-      )}
+          {/* ══ Activity + Goal ═══════════════════════════════════════════════ */}
+          {isApproved && (
+            <motion.div
+              variants={sectionVariants}
+              className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_192px]"
+            >
+              {/* 30-day heatmap */}
+              <div
+                className="rounded-2xl border border-[#E5E7EB] bg-white p-5"
+                style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <p className="text-[13px] font-semibold text-slate-700">30-day activity</p>
+                  {stats && weekCards > 0 && (
+                    <span className="text-[12px] font-medium text-slate-400">
+                      {weekCards.toLocaleString()} cards this week
+                    </span>
+                  )}
+                </div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-full rounded-lg" />
+                ) : stats?.activity30d ? (
+                  <ActivityHeatmap data={stats.activity30d} />
+                ) : (
+                  <p className="text-[12.5px] text-slate-400">No activity yet — start a session!</p>
+                )}
+              </div>
 
-      {/* Quick actions */}
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-          Quick access
-        </p>
-        <div className="space-y-2">
-          {actions.map((a) => <QuickActionCard key={a.label} {...a} />)}
-
-          {(profile?.role === 'teacher' || profile?.role === 'administrator') && (
-            <QuickActionCard
-              label="Teacher Dashboard"
-              description="View classroom progress and student activity"
-              icon={Zap}
-              href="/teacher"
-              iconColor="text-slate-600"
-              iconBg="bg-slate-100"
-            />
+              {/* Daily goal ring */}
+              <motion.div
+                whileHover={{ y: -2, boxShadow: '0 10px 28px -6px rgba(15,23,42,0.11)' }}
+                className="flex flex-col items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white px-5 py-6"
+                style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}
+              >
+                <p className="mb-4 text-[13px] font-semibold text-slate-700">Today&apos;s goal</p>
+                {isLoading ? (
+                  <Skeleton className="h-24 w-24 rounded-full" />
+                ) : (
+                  <div className="relative">
+                    <ProgressRing
+                      value={todayCards}
+                      max={dailyGoal}
+                      size={96}
+                      strokeWidth={7}
+                      color={todayCards >= dailyGoal ? '#0D9488' : '#1E40AF'}
+                    />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="font-display text-[22px] font-bold leading-none tracking-[-0.03em] text-slate-900">
+                        <AnimatedNumber value={todayCards} delay={200} />
+                      </span>
+                      <span className="text-[10.5px] font-medium text-slate-400">/ {dailyGoal}</span>
+                    </div>
+                  </div>
+                )}
+                <p className={cn(
+                  'mt-4 text-[11.5px] font-semibold',
+                  todayCards >= dailyGoal ? 'text-[#0D9488]' : 'text-slate-400',
+                )}>
+                  {isLoading
+                    ? 'Loading…'
+                    : todayCards >= dailyGoal
+                    ? 'Goal reached!'
+                    : `${dailyGoal - todayCards} cards to go`}
+                </p>
+              </motion.div>
+            </motion.div>
           )}
 
-          <QuickActionCard
-            label="Leaderboard"
-            description="See top students in your district this month"
-            icon={Trophy}
-            href="/leaderboard"
-            iconColor="text-amber-600"
-            iconBg="bg-amber-50"
-          />
-        </div>
-      </div>
+          {/* ══ Primary actions — 2×2 grid ════════════════════════════════════ */}
+          <motion.div variants={sectionVariants}>
+            <SectionLabel>Quick access</SectionLabel>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {primaryActions.map((a, i) => (
+                <ActionCard key={a.label} {...a} delay={0.28 + i * 0.055} />
+              ))}
+            </div>
+          </motion.div>
 
-      {/* CTA */}
-      <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-white p-5">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Ready to study?</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Pick a deck and start a spaced repetition session</p>
-        </div>
-        <Button asChild size="lg">
-          <Link href="/study">
-            <Brain className="h-4 w-4" />
-            Start session
-          </Link>
-        </Button>
+          {/* ══ Secondary actions — list ═══════════════════════════════════════ */}
+          {secondaryActions.length > 0 && (
+            <motion.div variants={sectionVariants}>
+              <SectionLabel>More</SectionLabel>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {secondaryActions.map((a, i) => (
+                  <ActionCard key={a.label} {...a} delay={0.5 + i * 0.05} />
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ══ Study CTA ════════════════════════════════════════════════════ */}
+          {isApproved && (
+            <motion.div variants={sectionVariants}>
+              <Link href="/study" className="group block">
+                <motion.div
+                  whileHover={{ y: -3, boxShadow: '0 24px 56px -20px rgba(30,64,175,0.42)' }}
+                  whileTap={{ scale: 0.995 }}
+                  transition={spring}
+                  className="relative overflow-hidden rounded-2xl bg-[#1E40AF] p-6"
+                  style={{ boxShadow: '0 8px 24px -8px rgba(30,64,175,0.38)' }}
+                >
+                  {/* Engineered background — dot grid, no blobs */}
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)',
+                      backgroundSize: '20px 20px',
+                    }}
+                  />
+                  {/* Teal accent — top-right, contained */}
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[#0D9488]/35 blur-2xl"
+                  />
+
+                  <div className="relative flex items-center justify-between gap-6">
+                    <div>
+                      <p className="text-[10.5px] font-semibold uppercase tracking-[0.15em] text-white/55">
+                        Ready when you are
+                      </p>
+                      <p className="mt-1 font-display text-[21px] font-bold leading-tight tracking-[-0.025em] text-white">
+                        Start a review session
+                      </p>
+                      <p className="mt-1.5 text-[13px] leading-[1.5] text-white/65">
+                        Pick a deck and let spaced repetition take over.
+                      </p>
+                    </div>
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 transition-all duration-200 group-hover:bg-white/22 group-hover:scale-105">
+                      <ArrowUpRight className="h-5 w-5 text-white transition-transform duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    </div>
+                  </div>
+                </motion.div>
+              </Link>
+            </motion.div>
+          )}
+
+        </motion.div>
       </div>
     </div>
   );
