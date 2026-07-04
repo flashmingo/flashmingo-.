@@ -83,7 +83,7 @@ function NavLink({ href, label, icon: Icon, disabled }: NavItem) {
     >
       <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-white' : 'text-sidebar-foreground/60')} />
       <span className="flex-1">{label}</span>
-      {isActive && <span className="h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />}
+      {isActive && <span className="h-1.5 w-1.5 rounded-full bg-[#FBBF24] shrink-0" />}
     </Link>
   );
 }
@@ -111,10 +111,7 @@ export default function Sidebar() {
     .toUpperCase();
 
   return (
-    <aside
-      className="flex h-full w-[220px] flex-col border-r border-sidebar-border"
-      style={{ background: 'hsl(224 44% 11%)' }}
-    >
+    <aside className="flex h-full w-[220px] flex-col border-r border-sidebar-border bg-sidebar">
       {/* Logo */}
       <div className="flex h-14 shrink-0 items-center px-4 border-b border-sidebar-border">
         <FlashMingoLogo showText className="h-7" />
@@ -161,7 +158,7 @@ export default function Sidebar() {
         <div className="flex items-center gap-2.5">
           <Avatar className="h-7 w-7 shrink-0">
             <AvatarImage src={profile?.avatar_url ?? user?.user_metadata?.avatar_url} />
-            <AvatarFallback className="bg-blue-800 text-white text-xs font-semibold">
+            <AvatarFallback className="bg-[#FBBF24] text-[#1E3A8A] text-xs font-bold">
               {initials}
             </AvatarFallback>
           </Avatar>
