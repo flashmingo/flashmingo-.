@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { containsProfanity } from '@/lib/profanity';
 import { Plus, Globe, Lock } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -17,11 +18,18 @@ export function CreateDeckDialog() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   const { mutate, isPending, error } = useCreateDeck();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setLocalError(null);
     if (!name.trim()) return;
+    // Client-side profanity check
+    if (containsProfanity(name) || containsProfanity(description)) {
+      setLocalError('Please avoid profanity in deck name or description.');
+      return;
+    }
     mutate(
       { name: name.trim(), description: description.trim() || undefined, is_public: isPublic },
       {
@@ -97,6 +105,7 @@ export function CreateDeckDialog() {
             </div>
           </div>
 
+          {localError && <p className="text-sm text-destructive">{localError}</p>}
           {error && <p className="text-sm text-destructive">{error.message}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

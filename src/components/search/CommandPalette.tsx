@@ -98,18 +98,18 @@ export function CommandPalette() {
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          'flex items-center gap-2 rounded-lg px-3 h-8',
-          'border border-border bg-muted/60 text-muted-foreground text-sm',
-          'hover:bg-muted transition-colors w-56 justify-between',
+          'flex items-center gap-2 rounded-[9px] px-2.5 h-8',
+          'border border-input bg-white text-[#A39E93] text-[13px]',
+          'hover:bg-[#F4F0E8] hover:border-[#D3CBB8] transition-colors w-[260px] justify-between',
           'focus:outline-none focus:ring-2 focus:ring-ring'
         )}
         aria-label="Open search"
       >
         <span className="flex items-center gap-2">
           <Search className="h-3.5 w-3.5" />
-          <span className="text-xs">Search decks, cards…</span>
+          <span>Search…</span>
         </span>
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-white px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-px text-[10px] font-sans text-[#A39E93]">
           ⌘K
         </kbd>
       </button>

@@ -2,7 +2,7 @@
 
 import { use, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, RotateCcw, CheckCircle2, Eye, ChevronLeft, ChevronRight, Shuffle } from 'lucide-react';
+import { ArrowLeft, RotateCcw, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { calculateSM2, formatInterval } from '@/lib/sm2';
 import { Button } from '@/components/ui/Button';
@@ -51,16 +51,33 @@ async function submitReview(payload: {
 
 // ─── Rating config ────────────────────────────────────────────
 const RATINGS = [
-  { quality: 0, label: 'Again',  sub: '1d',  variant: 'answer-again' as const },
-  { quality: 2, label: 'Hard',   sub: '2d',  variant: 'answer-hard'  as const },
-  { quality: 3, label: 'Good',   sub: '4d',  variant: 'answer-good'  as const },
-  { quality: 5, label: 'Easy',   sub: '7d',  variant: 'answer-easy'  as const },
+  { quality: 0, label: 'Again', chip: 'border-[#FECACA] text-[#DC2626] hover:bg-[#FEF2F2] hover:border-[#FCA5A5]' },
+  { quality: 2, label: 'Hard',  chip: 'border-[#FED7AA] text-[#EA580C] hover:bg-[#FFF7ED] hover:border-[#FDBA74]' },
+  { quality: 3, label: 'Good',  chip: 'border-[#BFDBFE] text-[#2563EB] hover:bg-[#EFF6FF] hover:border-[#93C5FD]' },
 ] as const;
+
+// ─── Faded notebook-grid backdrop ─────────────────────────────
+function GridBackdrop() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0"
+      style={{
+        backgroundImage:
+          'linear-gradient(to right, rgba(27,26,24,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(27,26,24,0.04) 1px, transparent 1px)',
+        backgroundSize: '27px 27px',
+        WebkitMaskImage: 'radial-gradient(100% 90% at 50% 30%, #000 30%, transparent 80%)',
+        maskImage: 'radial-gradient(100% 90% at 50% 30%, #000 30%, transparent 80%)',
+      }}
+    />
+  );
+}
 
 // ─── Wrapper ──────────────────────────────────────────────────
 function StudyShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="relative flex h-full flex-col bg-background">
+      <GridBackdrop />
       {children}
     </div>
   );
@@ -118,8 +135,8 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
   if (!deckId) {
     return (
       <StudyShell>
-        <div className="flex flex-col items-center justify-center flex-1 gap-4 p-8 text-center">
-          <p className="text-muted-foreground text-sm">Select a deck to start a study session.</p>
+        <div className="relative flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+          <p className="text-sm text-muted-foreground">Select a deck to start a study session.</p>
           <Button asChild size="lg"><Link href="/decks">Browse decks</Link></Button>
         </div>
       </StudyShell>
@@ -130,8 +147,8 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
   if (isLoading) {
     return (
       <StudyShell>
-        <div className="flex flex-col items-center justify-center flex-1 gap-6 p-8">
-          <Skeleton className="h-64 w-full max-w-2xl rounded-2xl" />
+        <div className="relative flex flex-1 flex-col items-center justify-center gap-6 p-8">
+          <Skeleton className="h-64 w-full max-w-2xl rounded-[20px]" />
           <div className="flex gap-3">
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 w-28 rounded-xl" />)}
           </div>
@@ -144,12 +161,12 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
   if (cards.length === 0) {
     return (
       <StudyShell>
-        <div className="p-6">
+        <div className="relative p-6">
           <Button asChild variant="ghost" size="sm" className="-ml-2">
             <Link href="/decks"><ArrowLeft className="h-4 w-4 mr-1.5" />Back to decks</Link>
           </Button>
         </div>
-        <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center">
+        <div className="relative flex flex-1 flex-col items-center justify-center gap-4 text-center">
           <p className="text-sm font-semibold text-foreground">This deck has no cards yet.</p>
           <Button asChild variant="outline" size="sm">
             <Link href={`/decks/${deckId}`}>Add cards</Link>
@@ -163,30 +180,33 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
   if (!sessionStarted) {
     return (
       <StudyShell>
-        <div className="p-6">
+        <div className="relative p-6">
           <Button asChild variant="ghost" size="sm" className="-ml-2">
             <Link href="/decks"><ArrowLeft className="h-4 w-4 mr-1.5" />Back to decks</Link>
           </Button>
         </div>
-        <div className="flex flex-col items-center justify-center flex-1 gap-8 px-8 text-center">
+        <div className="relative flex flex-1 flex-col items-center justify-center gap-8 px-8 pb-12 text-center">
           <div>
-            <h2 className="text-2xl font-bold text-foreground mb-1">Ready to study?</h2>
+            <h2 className="mb-1.5 font-display text-[30px] font-extrabold tracking-[-0.03em] text-foreground">Ready to study?</h2>
             <p className="text-sm text-muted-foreground">{cards.length} cards in this session</p>
           </div>
           <div className="flex items-center gap-10">
             <div className="text-center">
-              <p className="text-3xl font-bold text-foreground tabular-nums">{cards.length}</p>
-              <p className="text-xs text-muted-foreground mt-1">Cards</p>
+              <p className="font-display text-[32px] font-extrabold tabular-nums text-foreground">{cards.length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Cards</p>
             </div>
-            <div className="h-10 w-px bg-border" />
+            <div className="h-10 w-px bg-input" />
             <div className="text-center">
-              <p className="text-3xl font-bold text-foreground">SM-2</p>
-              <p className="text-xs text-muted-foreground mt-1">Algorithm</p>
+              <p className="font-display text-[32px] font-extrabold text-foreground">SM-2</p>
+              <p className="mt-1 text-xs text-muted-foreground">Algorithm</p>
             </div>
           </div>
-          <Button size="xl" onClick={startSession} className="px-12">
+          <button
+            onClick={startSession}
+            className="inline-flex h-12 items-center rounded-[11px] bg-primary px-12 text-[15px] font-medium text-white shadow-[0_16px_40px_-18px_rgba(37,99,235,0.5)] transition-colors hover:bg-blue-700"
+          >
             Start session
-          </Button>
+          </button>
         </div>
       </StudyShell>
     );
@@ -198,28 +218,30 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
     const pct = Math.round((correct / results.length) * 100);
     return (
       <StudyShell>
-        <div className="flex flex-col items-center justify-center flex-1 gap-8 px-8 text-center">
-          <CheckCircle2 className="h-12 w-12 text-teal-500" />
+        <div className="relative flex flex-1 flex-col items-center justify-center gap-8 px-8 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#D7EEE9]">
+            <CheckCircle2 className="h-[30px] w-[30px] text-[#0D9488]" />
+          </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground mb-1">Session complete</h2>
+            <h2 className="mb-1.5 font-display text-[30px] font-extrabold tracking-[-0.03em] text-foreground">Session complete</h2>
             <p className="text-sm text-muted-foreground">
               You reviewed {results.length} card{results.length !== 1 ? 's' : ''}
             </p>
           </div>
           <div className="flex items-center gap-10">
             <div className="text-center">
-              <p className={cn('text-3xl font-bold tabular-nums', pct >= 70 ? 'text-teal-600' : 'text-orange-500')}>{pct}%</p>
-              <p className="text-xs text-muted-foreground mt-1">Accuracy</p>
+              <p className={cn('font-display text-[32px] font-extrabold tabular-nums', pct >= 70 ? 'text-[#0D9488]' : 'text-[#EA580C]')}>{pct}%</p>
+              <p className="mt-1 text-xs text-muted-foreground">Accuracy</p>
             </div>
-            <div className="h-10 w-px bg-border" />
+            <div className="h-10 w-px bg-input" />
             <div className="text-center">
-              <p className="text-3xl font-bold text-foreground tabular-nums">{correct}</p>
-              <p className="text-xs text-muted-foreground mt-1">Correct</p>
+              <p className="font-display text-[32px] font-extrabold tabular-nums text-foreground">{correct}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Correct</p>
             </div>
-            <div className="h-10 w-px bg-border" />
+            <div className="h-10 w-px bg-input" />
             <div className="text-center">
-              <p className="text-3xl font-bold text-foreground tabular-nums">{results.length - correct}</p>
-              <p className="text-xs text-muted-foreground mt-1">Missed</p>
+              <p className="font-display text-[32px] font-extrabold tabular-nums text-foreground">{results.length - correct}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Missed</p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -240,119 +262,130 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
   return (
     <StudyShell>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-white">
+      <div className="relative flex items-center justify-between border-b border-border bg-background/85 px-6 py-3">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link href="/decks"><ArrowLeft className="h-4 w-4 mr-1.5" />End session</Link>
         </Button>
-
-        {/* Progress */}
         <div className="flex items-center gap-3">
-          <div className="w-48 h-1.5 rounded-full bg-muted overflow-hidden hidden sm:block">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-300"
-              style={{ width: `${progressPct}%` }}
-            />
+          <div className="hidden h-1.5 w-48 overflow-hidden rounded-full bg-[#F1ECE2] sm:block">
+            <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${progressPct}%` }} />
           </div>
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="text-xs tabular-nums text-muted-foreground">
             {currentIndex + 1} / {cards.length}
           </span>
         </div>
-
         <div className="w-24" />
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 gap-6 max-w-2xl mx-auto w-full">
+      <div className="relative mx-auto flex w-full max-w-[640px] flex-1 flex-col items-center justify-center gap-7 px-6 py-8">
+        {/* Flashcard with deck-stack */}
+        <div className="relative w-full">
+          <div className="absolute left-4 right-[-16px] top-3.5 bottom-[-14px] rounded-[20px] border border-border bg-[#F1ECE2]" />
+          <div className="absolute left-2 right-[-8px] top-[7px] bottom-[-7px] rounded-[20px] border border-[#EDE7DB] bg-background shadow-[0_8px_20px_-12px_rgba(27,26,24,0.15)]" />
 
-        {/* Flashcard */}
-        <div
-          className={cn(
-            'w-full rounded-2xl border bg-white transition-all duration-200 cursor-pointer select-none',
-            'min-h-[260px] flex flex-col',
-            flipped
-              ? 'border-blue-200 shadow-flashcard'
-              : 'border-border shadow-md hover:shadow-lg hover:border-slate-300'
-          )}
-          onClick={() => setFlipped((f) => !f)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === ' ' && setFlipped((f) => !f)}
-          aria-label={flipped ? 'Showing answer — click to flip' : 'Click to reveal answer'}
-        >
-          {/* Card header */}
-          <div className={cn(
-            'px-5 py-3 border-b flex items-center justify-between',
-            flipped ? 'border-blue-100 bg-blue-50/50' : 'border-border bg-muted/20'
-          )}>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {flipped ? 'Answer' : 'Question'}
-            </span>
-            {!flipped && (
-              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <Eye className="h-3 w-3" /> Click to reveal
-              </span>
-            )}
-          </div>
-
-          {/* Card body */}
-          <div className="flex-1 flex items-center justify-center px-10 py-8">
-            <p className={cn(
-              'text-center leading-relaxed whitespace-pre-wrap text-foreground',
-              card.front_text.length > 120 ? 'text-base' : 'text-xl font-medium'
+          <div
+            onClick={() => setFlipped((f) => !f)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === ' ' && setFlipped((f) => !f)}
+            aria-label={flipped ? 'Showing answer — click to flip' : 'Click to reveal answer'}
+            className="relative cursor-pointer select-none [perspective:1400px]"
+          >
+            <div className={cn(
+              'relative h-[300px] w-full transition-transform duration-500 [transform-style:preserve-3d]',
+              flipped && '[transform:rotateY(180deg)]',
             )}>
-              {flipped ? card.back_text : card.front_text}
-            </p>
+              {/* Front */}
+              <div className="absolute inset-0 flex flex-col rounded-[20px] border border-border bg-white p-[22px] shadow-[0_20px_40px_-18px_rgba(27,26,24,0.28)] [backface-visibility:hidden]">
+                <div className="flex items-center justify-between">
+                  <span className="rounded-md bg-[#FBEFD8] px-[9px] py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#B45309]">Question</span>
+                  <span className="text-xs font-medium text-[#A39E93]">{currentIndex + 1} of {cards.length}</span>
+                </div>
+                <div className="flex flex-1 items-center justify-center px-3 py-4">
+                  <p className={cn(
+                    'text-balance text-center font-display font-bold leading-[1.3] text-foreground whitespace-pre-wrap',
+                    card.front_text.length > 120 ? 'text-[17px]' : 'text-[23px]',
+                  )}>
+                    {card.front_text}
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-1.5 text-xs text-[#A39E93]">
+                  <RefreshCw className="h-[13px] w-[13px]" /> Click to reveal the answer
+                </div>
+              </div>
+
+              {/* Back (navy) */}
+              <div className="absolute inset-0 flex flex-col rounded-[20px] border border-[#1E3A8A] bg-[#1E3A8A] p-[22px] text-white shadow-[0_20px_40px_-18px_rgba(30,58,138,0.45)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#FBBF24]">Answer</span>
+                <div className="flex flex-1 items-center justify-center px-3 py-4">
+                  <p className="text-balance text-center font-display text-[19px] font-semibold leading-[1.45] text-white whitespace-pre-wrap">
+                    {card.back_text}
+                  </p>
+                </div>
+                <div className="text-center text-xs text-[#C7D2FE]">How well did you recall this?</div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Answer buttons */}
+        {/* Answer buttons / show answer */}
         {flipped ? (
-          <div className="w-full space-y-2">
-            <p className="text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              How well did you recall this?
-            </p>
-            <div className="grid grid-cols-4 gap-2">
-              {RATINGS.map(({ quality, label, variant }) => {
-                const review = calculateSM2(
-                  {
-                    ease_factor:   card.progress?.ease_factor   ?? 2.5,
-                    interval_days: card.progress?.interval_days ?? 0,
-                    repetitions:   card.progress?.repetitions   ?? 0,
-                  },
-                  quality
-                );
-                const interval = formatInterval(review.new_state.interval_days);
-                return (
-                  <button
-                    key={quality}
-                    onClick={() => handleRate(quality)}
-                    className={cn(
-                      'flex flex-col items-center gap-0.5 rounded-xl border py-3.5 px-2',
-                      'text-sm font-semibold transition-all duration-150',
-                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      'active:scale-[0.97]',
-                      variant === 'answer-again' && 'border-red-200    bg-white text-red-600    hover:bg-red-50    hover:border-red-300',
-                      variant === 'answer-hard'  && 'border-orange-200 bg-white text-orange-600 hover:bg-orange-50 hover:border-orange-300',
-                      variant === 'answer-good'  && 'border-blue-200   bg-white text-blue-600   hover:bg-blue-50   hover:border-blue-300',
-                      variant === 'answer-easy'  && 'border-teal-300   bg-white text-teal-700   hover:bg-teal-50   hover:border-teal-400',
-                    )}
-                  >
-                    <span className="text-[13px] font-semibold">{label}</span>
-                    <span className="text-[11px] opacity-60 font-normal">{interval}</span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="grid w-full grid-cols-4 gap-2.5">
+            {RATINGS.map(({ quality, label, chip }) => {
+              const review = calculateSM2(
+                {
+                  ease_factor:   card.progress?.ease_factor   ?? 2.5,
+                  interval_days: card.progress?.interval_days ?? 0,
+                  repetitions:   card.progress?.repetitions   ?? 0,
+                },
+                quality
+              );
+              const interval = formatInterval(review.new_state.interval_days);
+              return (
+                <button
+                  key={quality}
+                  onClick={() => handleRate(quality)}
+                  className={cn(
+                    'flex flex-col items-center gap-0.5 rounded-[10px] border bg-white px-2 py-3 transition-all duration-150',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]',
+                    chip,
+                  )}
+                >
+                  <span className="text-[13px] font-semibold">{label}</span>
+                  <span className="text-[11px] font-normal opacity-60">{interval}</span>
+                </button>
+              );
+            })}
+            {/* Easy — solid teal */}
+            {(() => {
+              const review = calculateSM2(
+                {
+                  ease_factor:   card.progress?.ease_factor   ?? 2.5,
+                  interval_days: card.progress?.interval_days ?? 0,
+                  repetitions:   card.progress?.repetitions   ?? 0,
+                },
+                5
+              );
+              const interval = formatInterval(review.new_state.interval_days);
+              return (
+                <button
+                  onClick={() => handleRate(5)}
+                  className="flex flex-col items-center gap-0.5 rounded-[10px] bg-[#0D9488] px-2 py-3 text-white transition-all duration-150 hover:bg-[#0F766E] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+                >
+                  <span className="text-[13px] font-semibold">Easy</span>
+                  <span className="text-[11px] font-normal opacity-75">{interval}</span>
+                </button>
+              );
+            })()}
           </div>
         ) : (
-          <Button
+          <button
             onClick={() => setFlipped(true)}
-            variant="outline"
-            size="xl"
-            className="px-12"
+            className="inline-flex h-[46px] items-center rounded-[11px] border border-input bg-white px-12 text-[15px] font-medium text-foreground transition-colors hover:bg-[#F4F0E8]"
           >
             Show answer
-          </Button>
+          </button>
         )}
       </div>
     </StudyShell>

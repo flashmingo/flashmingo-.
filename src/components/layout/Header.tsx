@@ -19,7 +19,7 @@ export default function Header() {
   const router = useRouter();
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-white px-5">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/85 px-5 backdrop-blur-[8px]">
       <CommandPalette />
 
       <DropdownMenu.Root>

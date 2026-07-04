@@ -130,14 +130,12 @@ export default function DecksPage() {
     });
 
   return (
-    <div className="p-6 md:p-8 space-y-5">
+    <div className="flex max-w-[920px] flex-col gap-5 p-10">
       {/* Page header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight">My Decks</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {decks.length} {decks.length === 1 ? 'deck' : 'decks'}
-          </p>
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[#B45309]">Library</p>
+          <h1 className="font-display text-[26px] font-extrabold tracking-[-0.03em] text-foreground">My Decks</h1>
         </div>
         <div className="flex items-center gap-2">
           <GenerateDeckDialog />
@@ -148,7 +146,7 @@ export default function DecksPage() {
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative w-60">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#A39E93]" />
           <Input
             placeholder="Search decks…"
             value={search}
@@ -156,7 +154,7 @@ export default function DecksPage() {
             className="pl-8"
           />
         </div>
-        <div className="flex items-center rounded-lg border border-border bg-white p-0.5 gap-0.5">
+        <div className="flex items-center rounded-[10px] border border-input bg-white p-[3px] gap-0.5">
           {(['all', 'public', 'private'] as const).map((v) => (
             <button
               key={v}
@@ -170,6 +168,9 @@ export default function DecksPage() {
             </button>
           ))}
         </div>
+        <span className="ml-auto text-[13px] text-[#A39E93]">
+          {decks.length} {decks.length === 1 ? 'deck' : 'decks'}
+        </span>
       </div>
 
       {/* Loading */}
@@ -216,10 +217,10 @@ export default function DecksPage() {
 
       {/* Table */}
       {!isLoading && filtered.length > 0 && (
-        <div className="rounded-xl border border-border bg-white overflow-hidden shadow-card">
+        <div className="rounded-2xl border border-border bg-white overflow-hidden shadow-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/20">
+              <tr className="border-b border-border bg-[#F9F6F0]">
                 <th className="py-2.5 pl-4 pr-3 text-left"><ColHeader label="Deck" active={sortField==='name'} dir={sortDir} onClick={() => handleSort('name')} /></th>
                 <th className="py-2.5 px-3 text-left w-20"><ColHeader label="Cards" active={sortField==='card_count'} dir={sortDir} onClick={() => handleSort('card_count')} /></th>
                 <th className="py-2.5 px-3 text-left hidden md:table-cell w-32"><ColHeader label="Updated" active={sortField==='updated_at'} dir={sortDir} onClick={() => handleSort('updated_at')} /></th>
@@ -231,12 +232,12 @@ export default function DecksPage() {
             </thead>
             <tbody>
               {filtered.map((deck) => (
-                <tr key={deck.id} className="group border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                <tr key={deck.id} className="group border-b border-[#F1ECE2] last:border-0 hover:bg-background transition-colors">
                   {/* Name */}
                   <td className="py-3 pl-4 pr-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 border border-blue-100">
-                        <BookOpen className="h-3.5 w-3.5 text-blue-600" />
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EAF1FE]">
+                        <BookOpen className="h-3.5 w-3.5 text-primary" />
                       </div>
                       <div className="min-w-0">
                         <Link
@@ -262,11 +263,11 @@ export default function DecksPage() {
                   {/* Visibility */}
                   <td className="py-3 px-3">
                     {deck.is_public ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-green-700">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#0F766E]">
                         <Globe className="h-3 w-3" /> Public
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-[#A39E93]">
                         <Lock className="h-3 w-3" /> Private
                       </span>
                     )}

@@ -19,55 +19,66 @@
    ============================================================ */
 @layer base {
   :root {
-    --background:         220 14% 97%;   /* #F7F8FA */
-    --foreground:         220 26% 9%;    /* #111827  */
+    /* Warm "paper" palette (FlashMingo v2) */
+    --background:         44  30% 98%;   /* #FBFAF7 paper */
+    --foreground:         40  6%  10%;   /* #1B1A18 warm ink */
 
     --card:               0   0% 100%;
-    --card-foreground:    220 26% 9%;
+    --card-foreground:    40  6%  10%;
 
     --popover:            0   0% 100%;
-    --popover-foreground: 220 26% 9%;
+    --popover-foreground: 40  6%  10%;
 
-    /* Primary — blue-600 */
+    /* Primary — blue-600 (unchanged) */
     --primary:            217 91% 54%;   /* #2563EB  */
     --primary-foreground: 0   0% 100%;
 
-    /* Secondary */
-    --secondary:          220 14% 94%;   /* #EDF0F4  */
-    --secondary-foreground: 220 26% 20%;
+    /* Secondary — warm sand band */
+    --secondary:          40  30% 93%;   /* #F4F0E8  */
+    --secondary-foreground: 40 6% 23%;   /* #3B3A36  */
 
-    /* Muted */
-    --muted:              220 14% 94%;
-    --muted-foreground:   220 9% 46%;    /* #6B7280  */
+    /* Muted — warm */
+    --muted:              40  30% 93%;   /* #F4F0E8  */
+    --muted-foreground:   40  6%  41%;   /* #6E6A62  */
 
     /* Accent — teal */
-    --accent:             171 77% 31%;   /* #0D9488  */
+    --accent:             174 84% 32%;   /* #0D9488  */
     --accent-foreground:  0   0% 100%;
 
     --destructive:        0   84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border:             220 13% 90%;   /* #E4E7EB  */
-    --input:              220 13% 90%;
+    --border:             40  30% 88%;   /* #E9E3D7 warm border */
+    --input:              41  29% 84%;   /* #E0D9CB warm input border */
     --ring:               217 91% 54%;
 
     --radius:             0.5rem;        /* 8px base — components add on top */
 
+    /* Amber accent (from logo) + warm text tiers (FlashMingo v2) */
+    --amber:              38  92% 50%;   /* #F59E0B  */
+    --amber-ink:          33  91% 39%;   /* #B45309 eyebrow/amber label */
+    --amber-stroke:       32  94% 44%;   /* #D97706 amber icon stroke */
+    --amber-tint:         41  79% 92%;   /* #FBEFD8 amber tile bg */
+    --blue-tint:          214 100% 96%;  /* #EAF1FE blue tile bg */
+    --blue-deep:          224 64% 33%;   /* #1E3A8A deep navy */
+    --faint:              41  9%  62%;   /* #A39E93 faint meta text */
+    --band:               40  30% 93%;   /* #F4F0E8 warm band */
+
     --chart-1: 217 91% 54%;
-    --chart-2: 171 77% 31%;
+    --chart-2: 174 84% 32%;
     --chart-3:  38 92% 50%;
     --chart-4:   0 84% 60%;
     --chart-5: 262 83% 58%;
 
-    /* Sidebar */
-    --sidebar-background:          224 44% 11%;   /* #0F1729  */
-    --sidebar-foreground:          218 27% 75%;   /* #A8B5C8  */
-    --sidebar-primary:             217 91% 65%;   /* bright blue for active */
+    /* Sidebar — deep navy (FlashMingo v2) */
+    --sidebar-background:          224 64% 33%;   /* #1E3A8A  */
+    --sidebar-foreground:          226 96% 89%;   /* #C7D2FE  */
+    --sidebar-primary:             43  96% 62%;   /* #FBBF24 amber active marker */
     --sidebar-primary-foreground:  0   0% 100%;
-    --sidebar-accent:              224 44% 16%;   /* hover bg  */
+    --sidebar-accent:              224 55% 42%;   /* hover bg (#2A4694-ish) */
     --sidebar-accent-foreground:   0   0% 100%;
-    --sidebar-border:              224 44% 15%;
-    --sidebar-ring:                217 91% 65%;
+    --sidebar-border:              224 45% 42%;   /* rgba(199,210,254,0.18) over navy */
+    --sidebar-ring:                43  96% 62%;
   }
 }
 
@@ -92,7 +103,7 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     font-weight: 700;
     line-height: 1.25;
     letter-spacing: -0.025em;
