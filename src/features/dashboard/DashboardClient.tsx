@@ -5,13 +5,17 @@ import Link from 'next/link';
 import { motion, animate, useMotionValue, AnimatePresence } from 'framer-motion';
 import {
   BookOpen, Brain, GraduationCap, Globe, Trophy, Zap, Flame,
-  BarChart2, ArrowUpRight, Clock, ChevronRight,
+  BarChart2, ArrowUpRight, Clock, ChevronRight, Sparkles, Lock,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useDecks } from '@/features/decks/hooks';
+import { useGamification, useCelebrations } from '@/features/gamification/hooks';
+import { CelebrationToasts } from '@/components/gamification/CelebrationToast';
+import { gamificationIcon } from '@/components/gamification/icons';
 import { getGreeting, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/Skeleton';
 import type { Profile, Deck } from '@/lib/types';
+import type { GamificationData, QuestProgress } from '@/lib/types/gamification';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Types
@@ -82,6 +86,249 @@ function ProgressRing({
         strokeWidth={strokeWidth} strokeLinecap="round"
         strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)} />
     </svg>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Command strip — level · review forecast · daily goal
+   ───────────────────────────────────────────────────────────────────────────── */
+function CommandStrip({
+  game, todayCards, dailyGoal,
+}: {
+  game: GamificationData; todayCards: number; dailyGoal: number;
+}) {
+  const { xp, forecast } = game;
+  const dueNow = forecast.overdue + forecast.dueToday;
+
+  return (
+    <div
+      className="grid grid-cols-1 divide-y divide-slate-100 rounded-2xl border border-[#E5E7EB] bg-white sm:grid-cols-[auto_1fr_auto] sm:divide-x sm:divide-y-0"
+      style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}
+    >
+      {/* Level */}
+      <div className="flex items-center gap-4 p-5">
+        <div className="relative shrink-0">
+          <ProgressRing value={xp.xpIntoLevel} max={xp.xpForNextLevel} size={72} strokeWidth={6} color="#1E40AF" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="font-display text-[20px] font-bold leading-none tracking-[-0.03em] text-slate-900 tabular-nums">
+              {xp.level}
+            </span>
+            <span className="text-[8.5px] font-semibold uppercase tracking-[0.1em] text-slate-400">Level</span>
+          </div>
+        </div>
+        <div>
+          <p className="font-display text-[15px] font-bold tracking-[-0.01em] text-slate-900">
+            <AnimatedNumber value={xp.totalXp} /> XP
+          </p>
+          <p className="mt-0.5 text-[11.5px] text-slate-400">
+            {xp.xpForNextLevel - xp.xpIntoLevel} XP to level {xp.level + 1}
+          </p>
+        </div>
+      </div>
+
+      {/* Forecast + resume */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-5">
+        <div className="flex items-center gap-6">
+          {[
+            { n: forecast.overdue,    label: 'Overdue',   tone: forecast.overdue > 0 ? 'text-orange-500' : 'text-slate-900' },
+            { n: forecast.dueToday,   label: 'Due today', tone: 'text-slate-900' },
+            { n: forecast.dueThisWeek,label: 'This week', tone: 'text-slate-900' },
+          ].map(({ n, label, tone }) => (
+            <div key={label}>
+              <p className={cn('font-display text-[24px] font-bold leading-none tracking-[-0.03em] tabular-nums', tone)}>
+                <AnimatedNumber value={n} delay={150} />
+              </p>
+              <p className="mt-1 text-[11px] font-medium text-slate-400">{label}</p>
+            </div>
+          ))}
+        </div>
+        {dueNow > 0 ? (
+          <Link
+            href="/decks"
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#1E40AF] px-4 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-[#1B3A9E] hover:shadow-md active:scale-[0.98]"
+          >
+            Review {dueNow} card{dueNow !== 1 ? 's' : ''}
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+        ) : (
+          <span className="text-[12.5px] font-medium text-[#0D9488]">All caught up ✓</span>
+        )}
+      </div>
+
+      {/* Daily goal */}
+      <div className="flex items-center gap-4 p-5">
+        <div className="relative shrink-0">
+          <ProgressRing value={todayCards} max={dailyGoal} size={72} strokeWidth={6}
+            color={todayCards >= dailyGoal ? '#0D9488' : '#1E40AF'} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="font-display text-[17px] font-bold leading-none tracking-[-0.02em] text-slate-900 tabular-nums">
+              {todayCards}
+            </span>
+          </div>
+        </div>
+        <div>
+          <p className="text-[13px] font-semibold text-slate-700">Today&apos;s goal</p>
+          <p className={cn('mt-0.5 text-[11.5px] font-medium',
+            todayCards >= dailyGoal ? 'text-[#0D9488]' : 'text-slate-400')}>
+            {todayCards >= dailyGoal ? 'Goal reached!' : `${dailyGoal - todayCards} cards to go`}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Insight bar — one honest, data-driven nudge
+   ───────────────────────────────────────────────────────────────────────────── */
+function pickInsight(stats: UserStats, game: GamificationData, todayCards: number): string {
+  const { forecast } = game;
+  if (forecast.overdue >= 10) {
+    return `${forecast.overdue} cards are past due — clearing them first protects the intervals you've already built.`;
+  }
+  if (stats.streak >= 3 && todayCards === 0) {
+    return `Your ${stats.streak}-day streak is on the line — a single session today keeps it alive.`;
+  }
+  const nearestQuest = [...game.quests.daily, ...game.quests.weekly]
+    .filter((q) => !q.completed)
+    .sort((a, b) => (b.progress / b.goal) - (a.progress / a.goal))[0];
+  if (nearestQuest && nearestQuest.progress > 0) {
+    const left = nearestQuest.goal - nearestQuest.progress;
+    return `You're ${left} away from completing “${nearestQuest.title}” — worth ${nearestQuest.xpReward} XP.`;
+  }
+  if (forecast.dueThisWeek > 0) {
+    return `${forecast.dueThisWeek} cards come due later this week — short daily sessions beat one long one.`;
+  }
+  return 'Reviews spread out as memory strengthens — consistency matters more than volume.';
+}
+
+function InsightBar({ text }: { text: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-[#1E40AF]/15 bg-[#1E40AF]/[0.04] px-4 py-3">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#1E40AF]/10">
+        <Sparkles className="h-3.5 w-3.5 text-[#1E40AF]" />
+      </span>
+      <p className="text-[13px] leading-[1.5] text-slate-600">{text}</p>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Quests
+   ───────────────────────────────────────────────────────────────────────────── */
+function QuestRow({ quest, delay }: { quest: QuestProgress; delay: number }) {
+  const Icon = gamificationIcon(quest.icon);
+  const pct = Math.min(100, (quest.progress / quest.goal) * 100);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ ...springFast, delay }}
+      className="flex items-center gap-3.5 py-3"
+    >
+      <span className={cn(
+        'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+        quest.completed ? 'bg-[#0D9488]/10 text-[#0D9488]' : 'bg-slate-100 text-slate-500',
+      )}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className={cn('truncate text-[13px] font-semibold', quest.completed ? 'text-slate-400 line-through' : 'text-slate-800')}>
+            {quest.title}
+          </p>
+          <span className={cn('shrink-0 text-[11px] font-bold tabular-nums', quest.completed ? 'text-[#0D9488]' : 'text-slate-400')}>
+            {quest.completed ? `+${quest.xpReward} XP` : `${quest.progress}/${quest.goal}`}
+          </span>
+        </div>
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: delay + 0.2 }}
+            className={cn('h-full rounded-full', quest.completed ? 'bg-[#0D9488]' : 'bg-[#1E40AF]')}
+          />
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function QuestsCard({ game }: { game: GamificationData }) {
+  return (
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5"
+      style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}>
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-[13px] font-semibold text-slate-700">Quests</p>
+        <span className="text-[11px] font-medium text-slate-400">Resets daily · weekly</span>
+      </div>
+      <div className="divide-y divide-slate-50">
+        {[...game.quests.daily, ...game.quests.weekly].map((q, i) => (
+          <QuestRow key={q.id} quest={q} delay={0.1 + i * 0.06} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Achievements shelf
+   ───────────────────────────────────────────────────────────────────────────── */
+const TIER_BADGE: Record<'bronze' | 'silver' | 'gold', string> = {
+  bronze: 'bg-orange-50 text-orange-600 border-orange-100',
+  silver: 'bg-slate-50 text-slate-600 border-slate-200',
+  gold: 'bg-amber-50 text-amber-500 border-amber-100',
+};
+
+function AchievementsShelf({ game }: { game: GamificationData }) {
+  const { unlocked, locked } = game.achievements;
+  // Unlocked first, then the 3 nearest locked ones by progress ratio
+  const nextUp = [...locked]
+    .sort((a, b) => (b.progress / b.goal) - (a.progress / a.goal))
+    .slice(0, 3);
+
+  if (unlocked.length === 0 && nextUp.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5"
+      style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-[13px] font-semibold text-slate-700">Achievements</p>
+        <span className="text-[11px] font-medium text-slate-400">
+          {unlocked.length} of {unlocked.length + locked.length} unlocked
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2.5">
+        {unlocked.map((a, i) => {
+          const Icon = gamificationIcon(a.icon);
+          return (
+            <motion.div
+              key={a.id}
+              initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
+              transition={{ ...springFast, delay: 0.1 + i * 0.05 }}
+              whileHover={{ y: -2 }}
+              title={a.description}
+              className={cn('flex items-center gap-2 rounded-xl border px-3 py-2', TIER_BADGE[a.tier])}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="text-[12px] font-semibold">{a.title}</span>
+            </motion.div>
+          );
+        })}
+        {nextUp.map((a) => (
+          <div
+            key={a.id}
+            title={`${a.description} — ${a.progress}/${a.goal}`}
+            className="flex items-center gap-2 rounded-xl border border-dashed border-slate-200 px-3 py-2 text-slate-400"
+          >
+            <Lock className="h-3.5 w-3.5" />
+            <span className="text-[12px] font-medium">{a.title}</span>
+            <span className="text-[10.5px] font-semibold tabular-nums text-slate-300">
+              {Math.min(a.progress, a.goal)}/{a.goal}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -297,6 +544,9 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
     staleTime: 60_000,
   });
 
+  const { data: game } = useGamification(isApproved);
+  const { celebrations, clear } = useCelebrations(game);
+
   const { data: allDecks, isLoading: decksLoading } = useDecks();
   const recentDecks: Deck[] = (allDecks ?? [])
     .slice()
@@ -321,7 +571,7 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
   return (
     <div className="min-h-full bg-[#F8FAFC]">
       <div className="mx-auto max-w-5xl px-5 py-7 sm:px-8 md:px-10 md:py-10">
-        <motion.div variants={pageVariants} initial="hidden" animate="show" className="flex flex-col gap-7">
+        <motion.div variants={pageVariants} initial="hidden" animate="show" className="flex flex-col gap-6">
 
           {/* ── Greeting ─────────────────────────────────────────────────── */}
           <motion.div variants={sectionVariants} className="flex items-end justify-between gap-4">
@@ -366,6 +616,24 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
             )}
           </AnimatePresence>
 
+          {/* ── Command strip: level · forecast · goal ───────────────────── */}
+          {isApproved && (
+            <motion.div variants={sectionVariants}>
+              {game ? (
+                <CommandStrip game={game} todayCards={todayCards} dailyGoal={dailyGoal} />
+              ) : (
+                <Skeleton className="h-[112px] rounded-2xl" />
+              )}
+            </motion.div>
+          )}
+
+          {/* ── Insight ──────────────────────────────────────────────────── */}
+          {isApproved && stats && game && (
+            <motion.div variants={sectionVariants}>
+              <InsightBar text={pickInsight(stats, game, todayCards)} />
+            </motion.div>
+          )}
+
           {/* ── Stat cards ───────────────────────────────────────────────── */}
           {isApproved && (
             <motion.div variants={sectionVariants} className="grid grid-cols-3 gap-2.5 sm:gap-4">
@@ -391,9 +659,9 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
             </motion.div>
           )}
 
-          {/* ── Activity + Goal ──────────────────────────────────────────── */}
+          {/* ── Activity + Quests ────────────────────────────────────────── */}
           {isApproved && (
-            <motion.div variants={sectionVariants} className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_192px]">
+            <motion.div variants={sectionVariants} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5"
                 style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}>
                 <div className="mb-4 flex items-center justify-between">
@@ -411,33 +679,14 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
                     : <p className="text-[12.5px] text-slate-400">No activity yet — start a session!</p>}
               </div>
 
-              <motion.div
-                whileHover={{ y: -2, boxShadow: '0 10px 28px -6px rgba(15,23,42,0.11)' }}
-                className="flex flex-col items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white px-5 py-6"
-                style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}
-              >
-                <p className="mb-4 text-[13px] font-semibold text-slate-700">Today&apos;s goal</p>
-                {statsLoading ? (
-                  <Skeleton className="h-24 w-24 rounded-full" />
-                ) : (
-                  <div className="relative">
-                    <ProgressRing value={todayCards} max={dailyGoal} size={96} strokeWidth={7}
-                      color={todayCards >= dailyGoal ? '#0D9488' : '#1E40AF'} />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="font-display text-[22px] font-bold leading-none tracking-[-0.03em] text-slate-900">
-                        <AnimatedNumber value={todayCards} delay={200} />
-                      </span>
-                      <span className="text-[10.5px] font-medium text-slate-400">/ {dailyGoal}</span>
-                    </div>
-                  </div>
-                )}
-                <p className={cn('mt-4 text-[11.5px] font-semibold',
-                  todayCards >= dailyGoal ? 'text-[#0D9488]' : 'text-slate-400')}>
-                  {statsLoading ? 'Loading…'
-                    : todayCards >= dailyGoal ? 'Goal reached!'
-                    : `${dailyGoal - todayCards} cards to go`}
-                </p>
-              </motion.div>
+              {game ? <QuestsCard game={game} /> : <Skeleton className="h-[200px] rounded-2xl" />}
+            </motion.div>
+          )}
+
+          {/* ── Achievements ─────────────────────────────────────────────── */}
+          {isApproved && game && (
+            <motion.div variants={sectionVariants}>
+              <AchievementsShelf game={game} />
             </motion.div>
           )}
 
@@ -481,46 +730,11 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
             </motion.div>
           )}
 
-          {/* ── Study CTA ───────────────────────────────────────────────── */}
-          {isApproved && (
-            <motion.div variants={sectionVariants}>
-              <Link href="/study" className="group block">
-                <motion.div
-                  whileHover={{ y: -3, boxShadow: '0 24px 56px -20px rgba(30,64,175,0.42)' }}
-                  whileTap={{ scale: 0.995 }}
-                  transition={spring}
-                  className="relative overflow-hidden rounded-2xl bg-[#1E40AF] p-6"
-                  style={{ boxShadow: '0 8px 24px -8px rgba(30,64,175,0.38)' }}
-                >
-                  <div aria-hidden className="pointer-events-none absolute inset-0"
-                    style={{
-                      backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)',
-                      backgroundSize: '20px 20px',
-                    }} />
-                  <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[#0D9488]/35 blur-2xl" />
-                  <div className="relative flex items-center justify-between gap-6">
-                    <div>
-                      <p className="text-[10.5px] font-semibold uppercase tracking-[0.15em] text-white/55">
-                        Ready when you are
-                      </p>
-                      <p className="mt-1 font-display text-[21px] font-bold leading-tight tracking-[-0.025em] text-white">
-                        Start a review session
-                      </p>
-                      <p className="mt-1.5 text-[13px] leading-[1.5] text-white/65">
-                        Pick a deck and let spaced repetition take over.
-                      </p>
-                    </div>
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 transition-all duration-200 group-hover:scale-105 group-hover:bg-white/22">
-                      <ArrowUpRight className="h-5 w-5 text-white transition-transform duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                    </div>
-                  </div>
-                </motion.div>
-              </Link>
-            </motion.div>
-          )}
-
         </motion.div>
       </div>
+
+      {/* Celebration toasts + confetti */}
+      <CelebrationToasts queue={celebrations} onDrain={clear} />
     </div>
   );
 }

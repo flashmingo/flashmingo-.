@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { XP_BASE_REVIEW, XP_PERFECT_REVIEW_BONUS } from '@/lib/gamification';
 
 type Params = { params: Promise<{ cardId: string }> };
 
@@ -56,5 +57,14 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
   }
 
-  return NextResponse.json({ data });
+  // Award XP — best-effort, never fails the review itself.
+  const xpAmount = XP_BASE_REVIEW + (quality >= 5 ? XP_PERFECT_REVIEW_BONUS : 0);
+  await supabase.from('xp_events').insert({
+    user_id: user.id,
+    amount: xpAmount,
+    reason: quality >= 5 ? 'perfect_review' : 'card_review',
+    metadata: { card_id: cardId, quality },
+  });
+
+  return NextResponse.json({ data, xpAwarded: xpAmount });
 }

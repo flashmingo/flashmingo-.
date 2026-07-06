@@ -1,10 +1,12 @@
 'use client';
 
-import { use, useState, useCallback } from 'react';
+import { use, useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, RotateCcw, CheckCircle2, RefreshCw } from 'lucide-react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { ArrowLeft, RotateCcw, CheckCircle2, RefreshCw, Zap } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateSM2, formatInterval } from '@/lib/sm2';
+import { XP_BASE_REVIEW, XP_PERFECT_REVIEW_BONUS } from '@/lib/gamification';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
@@ -93,6 +95,9 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
   const [results, setResults]         = useState<{ quality: number; cardId: string }[]>([]);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [done, setDone]               = useState(false);
+  const [sessionXp, setSessionXp]     = useState(0);
+  const [xpPop, setXpPop]             = useState<{ amount: number; id: number } | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: cards = [], isLoading } = useQuery({
     queryKey: ['study-cards', deckId],
@@ -108,6 +113,7 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
     setSessionId(id);
     setSessionStarted(true);
     setCurrentIndex(0); setFlipped(false); setResults([]); setDone(false);
+    setSessionXp(0); setXpPop(null);
   }, [deckId]);
 
   const handleRate = useCallback((quality: number) => {
@@ -127,9 +133,35 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
       next_review_at: review.next_review_date.toISOString(),
       session_id: sessionId,
     });
-    if (currentIndex + 1 >= cards.length) { setDone(true); }
+
+    // XP feedback — mirrors what the server awards
+    const xp = XP_BASE_REVIEW + (quality >= 5 ? XP_PERFECT_REVIEW_BONUS : 0);
+    setSessionXp((v) => v + xp);
+    setXpPop({ amount: xp, id: Date.now() });
+
+    if (currentIndex + 1 >= cards.length) {
+      setDone(true);
+      // Refresh dashboard stats + quests/achievements (auto-claims fire there)
+      queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['gamification'] });
+    }
     else { setCurrentIndex((i) => i + 1); setFlipped(false); }
-  }, [cards, currentIndex, results, sessionId, reviewMutation]);
+  }, [cards, currentIndex, results, sessionId, reviewMutation, queryClient]);
+
+  // Keyboard shortcuts: Space flips, 1–4 rate when the answer is showing
+  useEffect(() => {
+    if (!sessionStarted || done) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === ' ') { e.preventDefault(); setFlipped((f) => !f); return; }
+      if (!flipped) return;
+      const qualityByKey: Record<string, number> = { '1': 0, '2': 2, '3': 3, '4': 5 };
+      const q = qualityByKey[e.key];
+      if (q !== undefined) { e.preventDefault(); handleRate(q); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sessionStarted, done, flipped, handleRate]);
 
   // ── No deck ──────────────────────────────────────────────────
   if (!deckId) {
@@ -228,7 +260,7 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
               You reviewed {results.length} card{results.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <div className="flex items-center gap-10">
+          <div className="flex items-center gap-8 sm:gap-10">
             <div className="text-center">
               <p className={cn('font-display text-[32px] font-extrabold tabular-nums', pct >= 70 ? 'text-[#0D9488]' : 'text-[#EA580C]')}>{pct}%</p>
               <p className="mt-1 text-xs text-muted-foreground">Accuracy</p>
@@ -242,6 +274,15 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
             <div className="text-center">
               <p className="font-display text-[32px] font-extrabold tabular-nums text-foreground">{results.length - correct}</p>
               <p className="mt-1 text-xs text-muted-foreground">Missed</p>
+            </div>
+            <div className="h-10 w-px bg-input" />
+            <div className="text-center">
+              <p className="inline-flex items-baseline gap-1 font-display text-[32px] font-extrabold tabular-nums text-[#1E40AF]">
+                +{sessionXp}
+              </p>
+              <p className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                <Zap className="h-3 w-3 text-[#1E40AF]" /> XP earned
+              </p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -274,11 +315,41 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
             {currentIndex + 1} / {cards.length}
           </span>
         </div>
-        <div className="w-24" />
+        <div className="flex w-24 justify-end">
+          <AnimatePresence mode="popLayout">
+            <motion.span
+              key={sessionXp}
+              initial={{ opacity: 0, y: 6, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+              className="inline-flex items-center gap-1 rounded-full bg-[#1E40AF]/8 px-2.5 py-1 text-[11.5px] font-bold tabular-nums text-[#1E40AF]"
+            >
+              <Zap className="h-3 w-3" /> {sessionXp} XP
+            </motion.span>
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Main content */}
       <div className="relative mx-auto flex w-full max-w-[640px] flex-1 flex-col items-center justify-center gap-7 px-6 py-8">
+        {/* Floating XP pop */}
+        <AnimatePresence>
+          {xpPop && (
+            <motion.span
+              key={xpPop.id}
+              initial={{ opacity: 0, y: 0, scale: 0.8 }}
+              animate={{ opacity: [0, 1, 1, 0], y: -44, scale: 1 }}
+              transition={{ duration: 1.1, ease: 'easeOut' }}
+              onAnimationComplete={() => setXpPop(null)}
+              className="pointer-events-none absolute right-8 top-16 z-10 font-display text-[15px] font-bold text-[#0D9488]"
+              aria-hidden
+            >
+              +{xpPop.amount} XP
+            </motion.span>
+          )}
+        </AnimatePresence>
+
         {/* Flashcard with deck-stack */}
         <div className="relative w-full">
           <div className="absolute left-4 right-[-16px] top-3.5 bottom-[-14px] rounded-[20px] border border-border bg-[#F1ECE2]" />
@@ -380,12 +451,18 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
             })()}
           </div>
         ) : (
-          <button
-            onClick={() => setFlipped(true)}
-            className="inline-flex h-[46px] items-center rounded-[11px] border border-input bg-white px-12 text-[15px] font-medium text-foreground transition-colors hover:bg-[#F4F0E8]"
-          >
-            Show answer
-          </button>
+          <div className="flex flex-col items-center gap-2.5">
+            <button
+              onClick={() => setFlipped(true)}
+              className="inline-flex h-[46px] items-center rounded-[11px] border border-input bg-white px-12 text-[15px] font-medium text-foreground transition-colors hover:bg-[#F4F0E8]"
+            >
+              Show answer
+            </button>
+            <p className="hidden text-[11px] text-muted-foreground/70 sm:block">
+              <kbd className="rounded border border-border bg-white px-1.5 py-0.5 font-sans text-[10px]">Space</kbd> to flip
+              · <kbd className="rounded border border-border bg-white px-1.5 py-0.5 font-sans text-[10px]">1–4</kbd> to rate
+            </p>
+          </div>
         )}
       </div>
     </StudyShell>

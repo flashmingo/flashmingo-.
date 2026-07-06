@@ -166,6 +166,93 @@ export type Database = {
         Relationships: [];
       };
 
+      xp_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          amount: number;
+          reason: 'card_review' | 'perfect_review' | 'session_complete' | 'quest_daily' | 'quest_weekly' | 'achievement_unlock';
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          amount: number;
+          reason: 'card_review' | 'perfect_review' | 'session_complete' | 'quest_daily' | 'quest_weekly' | 'achievement_unlock';
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+
+      achievements: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          icon: string;
+          tier: 'bronze' | 'silver' | 'gold';
+          criteria_type: 'streak' | 'total_cards' | 'total_sessions' | 'level';
+          criteria_value: number;
+          xp_reward: number;
+          sort_order: number;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+
+      user_achievements: {
+        Row: {
+          user_id: string;
+          achievement_id: string;
+          unlocked_at: string;
+        };
+        Insert: {
+          user_id: string;
+          achievement_id: string;
+          unlocked_at?: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+
+      quest_templates: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          icon: string;
+          period: 'daily' | 'weekly';
+          goal_type: 'cards_reviewed' | 'sessions_completed' | 'study_days';
+          goal_value: number;
+          xp_reward: number;
+          sort_order: number;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+
+      user_quest_claims: {
+        Row: {
+          user_id: string;
+          quest_template_id: string;
+          period_key: string;
+          claimed_at: string;
+        };
+        Insert: {
+          user_id: string;
+          quest_template_id: string;
+          period_key: string;
+          claimed_at?: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+
       decks: {
         Row: {
           id: string;
