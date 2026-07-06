@@ -45,7 +45,8 @@ export async function updateSession(request: NextRequest) {
     pathname === '/sitemap.xml' ||
     pathname === '/manifest.webmanifest' ||
     pathname === '/icon.svg' ||
-    pathname === '/opengraph-image';
+    pathname.startsWith('/apple-icon') ||
+    pathname.startsWith('/opengraph-image');
 
   if (!user && !isPublicRoute) {
     // API routes get a JSON 401, not an HTML redirect

@@ -6,7 +6,7 @@ import { ArrowLeft, RotateCcw, CheckCircle2, RefreshCw, Zap } from 'lucide-react
 import { AnimatePresence, motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateSM2, formatInterval } from '@/lib/sm2';
-import { XP_BASE_REVIEW, XP_PERFECT_REVIEW_BONUS } from '@/lib/gamification';
+import { XP_BASE_REVIEW, XP_PERFECT_REVIEW_BONUS, XP_SESSION_COMPLETE } from '@/lib/gamification';
 import { Button } from '@/components/ui/Button';
 import { MathText } from '@/components/ui/MathText';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -98,6 +98,7 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
   const [done, setDone]               = useState(false);
   const [sessionXp, setSessionXp]     = useState(0);
   const [xpPop, setXpPop]             = useState<{ amount: number; id: number } | null>(null);
+  const [startedAt, setStartedAt]     = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const { data: cards = [], isLoading } = useQuery({
@@ -114,7 +115,7 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
     setSessionId(id);
     setSessionStarted(true);
     setCurrentIndex(0); setFlipped(false); setResults([]); setDone(false);
-    setSessionXp(0); setXpPop(null);
+    setSessionXp(0); setXpPop(null); setStartedAt(Date.now());
   }, [deckId]);
 
   const handleRate = useCallback((quality: number) => {
@@ -142,12 +143,25 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
 
     if (currentIndex + 1 >= cards.length) {
       setDone(true);
-      // Refresh dashboard stats + quests/achievements (auto-claims fire there)
-      queryClient.invalidateQueries({ queryKey: ['user-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['gamification'] });
+      // Close the session (sets ended_at, awards the completion bonus)
+      if (sessionId) {
+        const elapsed = startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0;
+        fetch(`/api/study-sessions/${sessionId}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ total_time_seconds: elapsed }),
+        }).finally(() => {
+          // Refresh stats + quests/achievements after the bonus lands
+          queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+          queryClient.invalidateQueries({ queryKey: ['gamification'] });
+        });
+        setSessionXp((v) => v + XP_SESSION_COMPLETE);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['gamification'] });
+      }
     }
     else { setCurrentIndex((i) => i + 1); setFlipped(false); }
-  }, [cards, currentIndex, results, sessionId, reviewMutation, queryClient]);
+  }, [cards, currentIndex, results, sessionId, reviewMutation, queryClient, startedAt]);
 
   // Keyboard shortcuts: Space flips, 1–4 rate when the answer is showing
   useEffect(() => {
@@ -282,7 +296,7 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
                 +{sessionXp}
               </p>
               <p className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
-                <Zap className="h-3 w-3 text-[#1E40AF]" /> XP earned
+                <Zap className="h-3 w-3 text-[#1E40AF]" /> XP · incl. +{XP_SESSION_COMPLETE} bonus
               </p>
             </div>
           </div>
