@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
+import { MathText } from '@/components/ui/MathText';
 import { useCreateDeck } from '@/features/decks/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { cardKeys } from '@/features/flashcards/hooks';
@@ -205,11 +206,11 @@ export function GenerateDeckDialog() {
                   <div key={i} className="rounded-lg border border-border p-3 grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Front</p>
-                      <p className="text-sm text-foreground">{card.front}</p>
+                      <p className="text-sm text-foreground"><MathText>{card.front}</MathText></p>
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Back</p>
-                      <p className="text-sm text-foreground">{card.back}</p>
+                      <p className="text-sm text-foreground"><MathText>{card.back}</MathText></p>
                     </div>
                   </div>
                 ))}

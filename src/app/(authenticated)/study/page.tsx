@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateSM2, formatInterval } from '@/lib/sm2';
 import { XP_BASE_REVIEW, XP_PERFECT_REVIEW_BONUS } from '@/lib/gamification';
 import { Button } from '@/components/ui/Button';
+import { MathText } from '@/components/ui/MathText';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 import type { Flashcard, UserCardProgress } from '@/lib/types';
@@ -378,7 +379,7 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
                     'text-balance text-center font-display font-bold leading-[1.3] text-foreground whitespace-pre-wrap',
                     card.front_text.length > 120 ? 'text-[17px]' : 'text-[23px]',
                   )}>
-                    {card.front_text}
+                    <MathText>{card.front_text}</MathText>
                   </p>
                 </div>
                 <div className="flex items-center justify-center gap-1.5 text-xs text-[#A39E93]">
@@ -391,7 +392,7 @@ export default function StudyPage({ searchParams }: { searchParams: Promise<{ de
                 <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#FBBF24]">Answer</span>
                 <div className="flex flex-1 items-center justify-center px-3 py-4">
                   <p className="text-balance text-center font-display text-[19px] font-semibold leading-[1.45] text-white whitespace-pre-wrap">
-                    {card.back_text}
+                    <MathText>{card.back_text}</MathText>
                   </p>
                 </div>
                 <div className="text-center text-xs text-[#C7D2FE]">How well did you recall this?</div>

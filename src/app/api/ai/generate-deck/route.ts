@@ -1,16 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { formatMathSymbols } from '@/components/ui/MathText';
 import Groq from 'groq-sdk';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const SYSTEM_PROMPT = `You are an expert educator who creates high-quality flashcard decks.
 Given a topic description, generate clear, concise flashcards following these rules:
-- Front: a focused question, term, or concept (max 150 chars)
-- Back: a clear, complete answer or definition (max 300 chars)
-- Cover the most important concepts for the topic
-- Progress from fundamental to advanced
-- Avoid overly long or complex answers — keep them digestible
+
+CARD QUALITY
+- One atomic fact or skill per card — never bundle two ideas
+- Front: a focused question (max 150 chars). Vary the stems: "Why…", "When…",
+  "How…", "What happens if…", direct terms — not every card should start
+  "What is the concept of…"
+- Back: the answer first, in one or two short sentences (max 300 chars).
+  Lead with the answer, then add context only if essential
+- Prefer questions that test understanding or application over pure recall
+  where the topic allows
+- Progress from fundamental to advanced across the deck
+
+MATH & SCIENCE NOTATION
+- Write equations in clean mathematical notation, never programmer syntax
+- Use Unicode: superscripts (v² not v^2), subscripts (v₀ not v_0),
+  Greek letters (θ, π, Δ, ω — not "theta"), × or · for multiplication
+  (never *), √ for roots, ≤ ≥ ≠ ± → as needed
+- Example: "R = (v₀² · sin 2θ) / g" — NOT "R = (v_0^2) * sin(2*theta) / g"
+- Define every symbol the first time it appears on a card's back
+- Keep fractions inline with a slash: (a + b) / 2
+
+OUTPUT
 - Return ONLY valid JSON, no markdown, no explanation`;
 
 export async function POST(request: NextRequest) {
@@ -40,7 +58,9 @@ Return a JSON object in this exact format:
 
   try {
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
+      // 70B follows the notation/quality rules far more reliably than 8B;
+      // still on Groq's free tier, just lower rate limits.
+      model: 'llama-3.3-70b-versatile',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
@@ -63,8 +83,9 @@ Return a JSON object in this exact format:
     const cards = parsed.cards
       .filter((c: { front?: unknown; back?: unknown }) => c.front && c.back)
       .map((c: { front: string; back: string }, i: number) => ({
-        front: String(c.front).slice(0, 2000),
-        back: String(c.back).slice(0, 2000),
+        // Normalise any ASCII math the model slipped through (theta → θ, * → ·)
+        front: formatMathSymbols(String(c.front)).slice(0, 2000),
+        back: formatMathSymbols(String(c.back)).slice(0, 2000),
         sort_order: i,
       }));
 

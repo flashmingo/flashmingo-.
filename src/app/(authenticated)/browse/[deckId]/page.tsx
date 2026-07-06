@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
+import { MathText } from '@/components/ui/MathText';
 import { formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -34,10 +35,10 @@ function CardRow({ card, index }: { card: BrowseDeck['cards'][number]; index: nu
           {index + 1}
         </span>
         <div className="flex-1 min-w-0 space-y-1">
-          <p className="text-sm text-foreground">{card.front}</p>
+          <p className="text-sm text-foreground"><MathText>{card.front}</MathText></p>
           {showBack && (
             <p className="text-sm text-muted-foreground border-t border-border pt-1 mt-1">
-              {card.back}
+              <MathText>{card.back}</MathText>
             </p>
           )}
         </div>
@@ -225,10 +226,10 @@ function RevealCardRow({
           {index + 1}
         </span>
         <div className="flex-1 min-w-0 space-y-1">
-          <p className="text-sm text-foreground">{card.front}</p>
+          <p className="text-sm text-foreground"><MathText>{card.front}</MathText></p>
           {showBack && (
             <p className="text-sm text-muted-foreground border-t border-dashed border-border pt-1.5 mt-1.5">
-              {card.back}
+              <MathText>{card.back}</MathText>
             </p>
           )}
         </div>

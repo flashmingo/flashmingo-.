@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
+import { MathText } from '@/components/ui/MathText';
 import { CardDialog } from '@/components/flashcards/CardDialog';
 import type { Flashcard } from '@/lib/types';
 
@@ -117,13 +118,13 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
                       <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                         Front
                       </p>
-                      <p className="text-sm text-foreground whitespace-pre-wrap">{card.front_text}</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap"><MathText>{card.front_text}</MathText></p>
                     </div>
                     <div>
                       <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                         Back
                       </p>
-                      <p className="text-sm text-foreground whitespace-pre-wrap">{card.back_text}</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap"><MathText>{card.back_text}</MathText></p>
                     </div>
                   </div>
                   {/* Actions — visible on hover */}

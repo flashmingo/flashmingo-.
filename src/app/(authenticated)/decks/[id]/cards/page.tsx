@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { MathText } from '@/components/ui/MathText';
 import type { Flashcard, Deck } from '@/lib/types';
 
 export default function DeckCardsPage({
@@ -170,13 +171,13 @@ export default function DeckCardsPage({
                   <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Front
                   </p>
-                  <p className="text-sm text-foreground">{card.front_text}</p>
+                  <p className="text-sm text-foreground"><MathText>{card.front_text}</MathText></p>
                 </div>
                 <div>
                   <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Back
                   </p>
-                  <p className="text-sm text-foreground">{card.back_text}</p>
+                  <p className="text-sm text-foreground"><MathText>{card.back_text}</MathText></p>
                 </div>
               </CardContent>
             </Card>
