@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { checkProfanityPayload, PROFANITY_ERROR } from '@/lib/profanity';
 
 type Params = { params: Promise<{ cardId: string }> };
 
@@ -29,6 +30,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (!authorized) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const body = await request.json();
+  if (checkProfanityPayload(body.front_text, body.back_text)) {
+    return NextResponse.json({ error: PROFANITY_ERROR }, { status: 400 });
+  }
+
   const updates: { front_text?: string; back_text?: string; sort_order?: number } = {};
   if (typeof body.front_text === 'string') {
     const t = body.front_text.trim();

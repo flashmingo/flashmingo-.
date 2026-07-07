@@ -14,9 +14,13 @@ const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ['@supabase/supabase-js'],
   outputFileTracingRoot: import.meta.dirname,
+  experimental: {
+    serverActions: { bodySizeLimit: '4mb' },
+  },
   images: {
     remotePatterns: [
       ...(supabaseHost ? [{ protocol: 'https', hostname: supabaseHost }] : []),
+      { protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/**' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' }, // Google avatars
     ],
   },

@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { isAccountApproved, APPROVAL_REQUIRED_ERROR } from '@/lib/approval';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (!(await isAccountApproved(supabase, user.id))) {
+    return NextResponse.json({ error: APPROVAL_REQUIRED_ERROR }, { status: 403 });
+  }
 
   const body = await request.json();
   const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';

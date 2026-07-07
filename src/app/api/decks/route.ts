@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { isAccountApproved, APPROVAL_REQUIRED_ERROR } from '@/lib/approval';
+import { checkProfanityPayload, PROFANITY_ERROR } from '@/lib/profanity';
 
 export async function GET() {
   const supabase = await createClient();
@@ -33,6 +35,12 @@ export async function POST(request: NextRequest) {
 
   if (!name) return NextResponse.json({ error: 'Deck name is required' }, { status: 400 });
   if (name.length > 100) return NextResponse.json({ error: 'Name too long (max 100)' }, { status: 400 });
+  if (checkProfanityPayload(name, body.description)) {
+    return NextResponse.json({ error: PROFANITY_ERROR }, { status: 400 });
+  }
+  if (!(await isAccountApproved(supabase, user.id))) {
+    return NextResponse.json({ error: APPROVAL_REQUIRED_ERROR }, { status: 403 });
+  }
 
   const { data, error } = await supabase
     .from('decks')

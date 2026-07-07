@@ -529,7 +529,6 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
   const dayStr  = today.toLocaleDateString('en-US', { weekday: 'long' });
   const dateStr = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  const isApproved       = profile?.account_status === 'approved';
   const isTeacherOrAdmin = profile?.role === 'teacher' || profile?.role === 'administrator';
 
   const { data: stats, isLoading: statsLoading, isError } = useQuery<UserStats>({
@@ -540,11 +539,10 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
       if (!res.ok) throw new Error(json.error ?? 'Failed to load stats');
       return json.data;
     },
-    enabled: isApproved,
     staleTime: 60_000,
   });
 
-  const { data: game } = useGamification(isApproved);
+  const { data: game } = useGamification();
   const { celebrations, clear } = useCelebrations(game);
 
   const { data: allDecks, isLoading: decksLoading } = useDecks();
@@ -582,7 +580,7 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
               </h1>
             </div>
             <AnimatePresence>
-              {isApproved && !statsLoading && stats && stats.streak > 0 && (
+              {!statsLoading && stats && stats.streak > 0 && (
                 <motion.div key="streak-badge"
                   initial={{ opacity: 0, scale: 0.75, x: 12 }}
                   animate={{ opacity: 1, scale: 1, x: 0 }}
@@ -609,7 +607,7 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
                 <div>
                   <p className="text-[13.5px] font-semibold text-amber-800">Account pending approval</p>
                   <p className="mt-0.5 text-[12.5px] text-amber-700">
-                    Your district administrator will review your account and grant access soon.
+                    You can explore and study right away. Joining classrooms and creating decks unlocks once your administrator approves your account.
                   </p>
                 </div>
               </motion.div>
@@ -617,26 +615,23 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
           </AnimatePresence>
 
           {/* ── Command strip: level · forecast · goal ───────────────────── */}
-          {isApproved && (
-            <motion.div variants={sectionVariants}>
+          <motion.div variants={sectionVariants}>
               {game ? (
                 <CommandStrip game={game} todayCards={todayCards} dailyGoal={dailyGoal} />
               ) : (
                 <Skeleton className="h-[112px] rounded-2xl" />
               )}
             </motion.div>
-          )}
 
           {/* ── Insight ──────────────────────────────────────────────────── */}
-          {isApproved && stats && game && (
+          {stats && game && (
             <motion.div variants={sectionVariants}>
               <InsightBar text={pickInsight(stats, game, todayCards)} />
             </motion.div>
           )}
 
           {/* ── Stat cards ───────────────────────────────────────────────── */}
-          {isApproved && (
-            <motion.div variants={sectionVariants} className="grid grid-cols-3 gap-2.5 sm:gap-4">
+          <motion.div variants={sectionVariants} className="grid grid-cols-3 gap-2.5 sm:gap-4">
               {statsLoading ? (
                 [0,1,2].map((i) => <Skeleton key={i} className="h-[118px] rounded-2xl" />)
               ) : isError ? (
@@ -657,11 +652,9 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
                 </>
               )}
             </motion.div>
-          )}
 
           {/* ── Activity + Quests ────────────────────────────────────────── */}
-          {isApproved && (
-            <motion.div variants={sectionVariants} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <motion.div variants={sectionVariants} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5"
                 style={{ boxShadow: '0 1px 3px 0 rgba(15,23,42,0.05)' }}>
                 <div className="mb-4 flex items-center justify-between">
@@ -681,17 +674,16 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
 
               {game ? <QuestsCard game={game} /> : <Skeleton className="h-[200px] rounded-2xl" />}
             </motion.div>
-          )}
 
           {/* ── Achievements ─────────────────────────────────────────────── */}
-          {isApproved && game && (
+          {game && (
             <motion.div variants={sectionVariants}>
               <AchievementsShelf game={game} />
             </motion.div>
           )}
 
           {/* ── Jump back in — recent decks ──────────────────────────────── */}
-          {isApproved && (decksLoading || recentDecks.length > 0) && (
+          {(decksLoading || recentDecks.length > 0) && (
             <motion.div variants={sectionVariants}>
               <SectionLabel>Jump back in</SectionLabel>
               {decksLoading ? (

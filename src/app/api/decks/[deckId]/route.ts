@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { checkProfanityPayload, PROFANITY_ERROR } from '@/lib/profanity';
 
 type Params = { params: Promise<{ deckId: string }> };
 
@@ -30,6 +31,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
+  if (checkProfanityPayload(body.name, body.description)) {
+    return NextResponse.json({ error: PROFANITY_ERROR }, { status: 400 });
+  }
   const updates: { name?: string; description?: string | null; is_public?: boolean } = {};
   if (typeof body.name === 'string') {
     const name = body.name.trim();

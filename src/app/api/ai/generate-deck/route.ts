@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { formatMathSymbols } from '@/components/ui/MathText';
+import { containsProfanity, PROFANITY_ERROR } from '@/lib/profanity';
+import { isAccountApproved, APPROVAL_REQUIRED_ERROR } from '@/lib/approval';
 import Groq from 'groq-sdk';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -42,6 +44,12 @@ export async function POST(request: NextRequest) {
 
   if (!description) return NextResponse.json({ error: 'Description is required' }, { status: 400 });
   if (description.length > 1000) return NextResponse.json({ error: 'Description too long (max 1000 chars)' }, { status: 400 });
+  if (containsProfanity(description)) {
+    return NextResponse.json({ error: PROFANITY_ERROR }, { status: 400 });
+  }
+  if (!(await isAccountApproved(supabase, user.id))) {
+    return NextResponse.json({ error: APPROVAL_REQUIRED_ERROR }, { status: 403 });
+  }
 
   const userPrompt = `Create exactly ${cardCount} flashcards for the following topic:
 

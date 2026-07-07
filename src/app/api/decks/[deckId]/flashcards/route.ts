@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { checkProfanityPayload, PROFANITY_ERROR } from '@/lib/profanity';
 
 type Params = { params: Promise<{ deckId: string }> };
 
@@ -47,6 +48,9 @@ export async function POST(request: NextRequest, { params }: Params) {
   const back_text = typeof body.back_text === 'string' ? body.back_text.trim() : '';
 
   if (!front_text) return NextResponse.json({ error: 'front_text is required' }, { status: 400 });
+  if (checkProfanityPayload(front_text, body.back_text)) {
+    return NextResponse.json({ error: PROFANITY_ERROR }, { status: 400 });
+  }
   if (!back_text) return NextResponse.json({ error: 'back_text is required' }, { status: 400 });
 
   const { data, error } = await supabase
