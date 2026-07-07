@@ -846,25 +846,7 @@ export function LandingPage() {
   const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-400 transition-shadow focus:border-[#1E40AF] focus:outline-none focus:ring-4 focus:ring-[#1E40AF]/10';
 
   return (
-    <div
-      className={cn(
-        'min-h-screen overflow-x-hidden bg-white font-sans text-slate-900 antialiased',
-      )}
-      onMouseMove={(e) => {
-        const t = e.currentTarget;
-        t.style.setProperty('--cx', `${e.clientX}px`);
-        t.style.setProperty('--cy', `${e.clientY}px`);
-      }}
-    >
-      {/* full-page cursor-tracked blue glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 z-0 hidden lg:block"
-        style={{
-          background: 'radial-gradient(520px circle at var(--cx,50%) var(--cy,40%), rgba(30,64,175,0.07), transparent 65%)',
-          transition: 'background .05s linear',
-        }}
-      />
+    <div className="min-h-screen overflow-x-hidden bg-white font-sans text-slate-900 antialiased">
       <ScrollProgress />
 
       {/* ── Nav ───────────────────────────────────────────────────────── */}
@@ -895,52 +877,45 @@ export function LandingPage() {
       </header>
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden">
-        {/* precise dot grid, radially masked */}
-        <div aria-hidden className="pointer-events-none absolute inset-0"
+      <section
+        className="relative overflow-hidden border-b border-slate-200/70"
+        onMouseMove={(e) => {
+          const el = e.currentTarget;
+          const r = el.getBoundingClientRect();
+          el.style.setProperty('--hx', `${e.clientX - r.left}px`);
+          el.style.setProperty('--hy', `${e.clientY - r.top}px`);
+          el.style.setProperty('--hg', '1');
+        }}
+        onMouseLeave={(e) => e.currentTarget.style.setProperty('--hg', '0')}
+      >
+        {/* cursor-tracked ambient glow */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 hidden transition-opacity duration-500 lg:block"
           style={{
-            backgroundImage: 'radial-gradient(circle at center, rgba(15,23,42,0.05) 1px, transparent 1px)',
-            backgroundSize: '22px 22px',
-            WebkitMaskImage: 'radial-gradient(120% 80% at 70% 20%, #000 30%, transparent 78%)',
-            maskImage: 'radial-gradient(120% 80% at 70% 20%, #000 30%, transparent 78%)',
+            opacity: 'var(--hg, 0)',
+            background: 'radial-gradient(480px circle at var(--hx, 65%) var(--hy, 35%), rgba(37,99,235,0.09), transparent 65%)',
           }}
         />
-        {/* cursor-tracked spotlight (fixed so it follows across the hero) */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block"
-          style={{
-            background: 'radial-gradient(500px circle at var(--cx,70%) var(--cy,30%), rgba(30,64,175,0.08), transparent 60%)',
-          }}
-        />
-        <div className="relative mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 px-6 pb-28 pt-24 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20 lg:pt-28">
+        <div className="relative mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 px-6 pb-24 pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20 lg:pt-24">
           <div>
             <Reveal>
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 py-1.5 pl-1.5 pr-3.5 shadow-sm backdrop-blur">
-                <span className="rounded-full bg-[#0D9488]/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[#0D9488]">New</span>
-                <span className="text-[13px] font-medium text-slate-600">AI deck generation, now for every teacher</span>
-              </div>
+              <h1 className="max-w-[560px] text-balance font-display text-[clamp(2.8rem,5.8vw,4.2rem)] font-bold leading-[1.05] tracking-[-0.035em] text-slate-900">
+                Learning that{' '}
+                <span className="bg-gradient-to-r from-[#1E40AF] via-[#2563EB] to-[#0D9488] bg-clip-text text-transparent">sticks.</span>
+              </h1>
             </Reveal>
-            <h1 className="max-w-[560px] text-balance font-display text-[clamp(3rem,6.4vw,4.8rem)] font-bold leading-[1.0] tracking-[-0.04em] text-slate-900">
-              {['Learning', 'that'].map((w, i) => (
-                <span key={w} className="inline-block" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) ${i * 110}ms both` }}>
-                  {w}&nbsp;
-                </span>
-              ))}
-              <span className="inline-block bg-gradient-to-r from-[#1E40AF] via-[#2563EB] to-[#0D9488] bg-clip-text text-transparent" style={{ animation: `fade-in-up .9s cubic-bezier(.16,1,.3,1) 240ms both` }}>
-                sticks.
-              </span>
-            </h1>
-            <Reveal index={2}>
-              <p className="mt-6 max-w-[400px] text-[19px] leading-[1.55] text-slate-500">
-                The flashcard platform built for schools.
+            <Reveal index={1}>
+              <p className="mt-5 max-w-[420px] text-[19px] leading-[1.55] text-slate-500">
+                Spaced-repetition flashcards for schools. Free for students and teachers.
               </p>
             </Reveal>
-            <Reveal index={3}>
-              <div className="mt-9 flex flex-wrap items-center gap-3">
+            <Reveal index={2}>
+              <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Magnetic>
                   <Button asChild size="lg" className="group h-12 rounded-xl bg-[#1E40AF] px-6 text-[15px] shadow-sm transition-all hover:bg-[#1B3A9E] hover:shadow-lg">
                     <Link href="/auth/login">
-                      <GraduationCap className="h-[18px] w-[18px]" />
-                      Sign in with Google
+                      Get started
                       <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
                     </Link>
                   </Button>
