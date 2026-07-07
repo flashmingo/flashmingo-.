@@ -36,6 +36,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (!VALID_ROLES.includes(body.role))
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     allowed.role = body.role;
+
+    // Assigning a role is an explicit act of vetting — auto-approve in
+    // the same request so an admin never has to click "approve" as a
+    // separate step. Doesn't override an explicit account_status also
+    // sent in this same request (e.g. setting role + suspending at once).
+    if (body.account_status === undefined) {
+      allowed.account_status = 'approved';
+    }
   }
 
   if (Object.keys(allowed).length === 0)
@@ -45,10 +53,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     .from('profiles').update(allowed).eq('id', userId).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Audit log every admin action on a user
-  const actionType = body.account_status
-    ? `user_status_changed_to_${body.account_status}`
-    : `user_role_changed_to_${body.role}`;
+  // Audit log every admin action on a user. When a role assignment
+  // auto-approved the account, log both facts in one entry.
+  const actionParts: string[] = [];
+  if (allowed.role) actionParts.push(`role_changed_to_${allowed.role}`);
+  if (allowed.account_status) actionParts.push(`status_changed_to_${allowed.account_status}`);
+  const actionType = `user_${actionParts.join('_and_')}`;
 
   await supabase.from('audit_logs').insert({
     user_id: user.id,
