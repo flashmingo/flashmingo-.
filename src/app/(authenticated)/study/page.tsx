@@ -67,8 +67,8 @@ function GridBackdrop() {
       className="pointer-events-none absolute inset-0"
       style={{
         backgroundImage:
-          'linear-gradient(to right, rgba(27,26,24,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(27,26,24,0.04) 1px, transparent 1px)',
-        backgroundSize: '27px 27px',
+          'radial-gradient(circle at center, rgba(15,23,42,0.05) 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
         WebkitMaskImage: 'radial-gradient(100% 90% at 50% 30%, #000 30%, transparent 80%)',
         maskImage: 'radial-gradient(100% 90% at 50% 30%, #000 30%, transparent 80%)',
       }}
