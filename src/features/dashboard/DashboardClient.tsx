@@ -567,8 +567,21 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
   ];
 
   return (
-    <div className="min-h-full bg-[#F8FAFC]">
-      <div className="mx-auto max-w-5xl px-5 py-7 sm:px-8 md:px-10 md:py-10">
+    <div className="relative min-h-full overflow-hidden bg-[#F8FAFC]">
+      {/* Ambient texture — same dot-grid + soft-glow language as the
+          landing page, kept faint so content stays the clear focus. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: 'radial-gradient(circle at center, rgba(15,23,42,0.05) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+          WebkitMaskImage: 'radial-gradient(120% 60% at 50% 0%, #000 0%, transparent 75%)',
+          maskImage: 'radial-gradient(120% 60% at 50% 0%, #000 0%, transparent 75%)',
+        }}
+      />
+      <div aria-hidden className="pointer-events-none absolute -left-32 -top-24 h-[420px] w-[420px] rounded-full bg-[#1E40AF]/[0.05] blur-[110px]" />
+      <div aria-hidden className="pointer-events-none absolute -right-24 top-64 h-[380px] w-[380px] rounded-full bg-[#0D9488]/[0.05] blur-[110px]" />
+
+      <div className="relative mx-auto max-w-5xl px-5 py-7 sm:px-8 md:px-10 md:py-10">
         <motion.div variants={pageVariants} initial="hidden" animate="show" className="flex flex-col gap-6">
 
           {/* ── Greeting ─────────────────────────────────────────────────── */}
