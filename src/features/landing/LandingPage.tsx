@@ -334,9 +334,10 @@ function HeroCard() {
   );
 }
 
-/* ─────────────────── Spaced-repetition memory diagram ─────────────────── */
+/* ─── Spaced-repetition interval chart — a plain bar chart: each correct
+   recall pushes the next review further out. ─────────────────────────────── */
 function MemoryDiagram() {
-  const ref = useRef<SVGSVGElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const [on, setOn] = useState(false);
   useEffect(() => {
     const el = ref.current; if (!el) return;
@@ -345,66 +346,33 @@ function MemoryDiagram() {
     return () => io.disconnect();
   }, []);
 
-  // review points along the timeline where memory is "topped up"
-  const reviews = [
-    { x: 70,  d: 'Day 1' },
-    { x: 200, d: 'Day 3' },
-    { x: 360, d: 'Day 8' },
-    { x: 560, d: 'Day 21' },
+  const steps = [
+    { label: '1 day',   h: 20 },
+    { label: '3 days',  h: 42 },
+    { label: '8 days',  h: 68 },
+    { label: '21 days', h: 100 },
   ];
 
   return (
-    <svg ref={ref} viewBox="0 0 660 260" className="w-full" role="img" aria-label="Spaced repetition memory curve">
-      {/* baseline */}
-      <line x1="30" y1="210" x2="640" y2="210" stroke="#E8EBF0" strokeWidth="1.5" />
-      <text x="30" y="234" className="fill-slate-400" fontSize="11" fontWeight="500">Time →</text>
-
-      {/* forgetting curves that decay then get refreshed at each review */}
-      {reviews.map((r, i) => {
-        const next = reviews[i + 1]?.x ?? 640;
-        return (
-          <path
-            key={i}
-            d={`M ${r.x} 60 C ${r.x + (next - r.x) * 0.4} 70, ${r.x + (next - r.x) * 0.55} 200, ${next} 205`}
-            fill="none"
-            stroke="#CBD5E1"
-            strokeWidth="2"
-            strokeDasharray="4 5"
-            style={{
-              opacity: on ? 0.9 : 0,
-              transition: `opacity .5s ease ${i * 220 + 300}ms`,
-            }}
-          />
-        );
-      })}
-
-      {/* the retained-knowledge rising staircase */}
-      <path
-        d="M 70 60 L 200 60 L 200 45 L 360 45 L 360 33 L 560 33 L 560 25"
-        fill="none"
-        stroke="#1E40AF"
-        strokeWidth="3"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        style={{
-          strokeDasharray: 900,
-          strokeDashoffset: on ? 0 : 900,
-          transition: 'stroke-dashoffset 1.6s cubic-bezier(.16,1,.3,1) .2s',
-        }}
-      />
-
-      {/* review markers */}
-      {reviews.map((r, i) => {
-        const y = [60, 60, 45, 33][i];
-        return (
-          <g key={r.d} style={{ opacity: on ? 1 : 0, transition: `opacity .4s ease ${i * 200 + 700}ms` }}>
-            <line x1={r.x} y1={y} x2={r.x} y2="210" stroke="#0D9488" strokeWidth="1.5" strokeDasharray="3 4" opacity="0.4" />
-            <circle cx={r.x} cy={y} r="6.5" fill="white" stroke="#0D9488" strokeWidth="3" />
-            <text x={r.x} y="230" textAnchor="middle" className="fill-slate-500" fontSize="11" fontWeight="600">{r.d}</text>
-          </g>
-        );
-      })}
-    </svg>
+    <div ref={ref} role="img" aria-label="Time until the next review grows after each correct recall">
+      <p className="mb-6 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-400">Time until the next review</p>
+      <div className="flex items-end gap-4" style={{ height: 180 }}>
+        {steps.map((s, i) => (
+          <div key={s.label} className="flex flex-1 flex-col items-center gap-3">
+            <div className="flex w-full flex-1 items-end">
+              <div
+                className="w-full rounded-t-md bg-gradient-to-t from-[#1E40AF] to-[#5EEAD4]"
+                style={{
+                  height: on ? `${s.h}%` : '0%',
+                  transition: `height .6s cubic-bezier(.16,1,.3,1) ${i * 110}ms`,
+                }}
+              />
+            </div>
+            <span className="text-[12.5px] font-semibold text-slate-300">{s.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -776,6 +744,15 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-white font-sans text-slate-900 antialiased">
+      {/* Universal ambient dot-grid — same texture as the dashboard */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{
+          backgroundImage: 'radial-gradient(circle at center, rgba(15,23,42,0.05) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      />
       <ScrollProgress />
 
       {/* ── Nav ───────────────────────────────────────────────────────── */}
@@ -862,7 +839,7 @@ export function LandingPage() {
       </section>
 
       {/* ── Trust marquee ─────────────────────────────────────────────── */}
-      <section className="border-y border-slate-200/70 bg-[#F7F9FC] py-8">
+      <section className="border-y border-slate-200/70 py-8">
         <p className="mb-6 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
           Built for the standards districts require
         </p>
@@ -879,7 +856,7 @@ export function LandingPage() {
 
 
       {/* ── Why FlashMingo — narrative ────────────────────────────────── */}
-      <section id="why" className="border-t border-slate-200/70 bg-[#F7F9FC] py-24">
+      <section id="why" className="border-t border-slate-200/70 py-24">
         <div className="mx-auto max-w-6xl px-6">
           <Reveal className="mb-16 max-w-2xl">
             <Eyebrow>Why FlashMingo</Eyebrow>
@@ -910,15 +887,7 @@ export function LandingPage() {
       </section>
 
       {/* ── AI forge — decks build themselves ─────────────────────────── */}
-      <section className="relative overflow-hidden py-24">
-        <div aria-hidden className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage: 'radial-gradient(circle at center, rgba(15,23,42,0.04) 1px, transparent 1px)',
-            backgroundSize: '22px 22px',
-            WebkitMaskImage: 'radial-gradient(90% 90% at 50% 50%, #000 40%, transparent 80%)',
-            maskImage: 'radial-gradient(90% 90% at 50% 50%, #000 40%, transparent 80%)',
-          }}
-        />
+      <section className="relative overflow-hidden border-t border-slate-200/70 py-24">
         <div className="relative mx-auto grid max-w-6xl grid-cols-1 items-center gap-14 px-6 lg:grid-cols-[0.85fr_1.15fr]">
           <Reveal>
             <Eyebrow tone="teal">AI deck generation</Eyebrow>
@@ -1000,24 +969,14 @@ export function LandingPage() {
           <Reveal>
             <div className="mb-4 inline-flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-[#5EEAD4]" />
-              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Learning intelligence</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Spaced repetition</span>
             </div>
             <h2 className="mb-5 text-balance font-display text-[clamp(1.9rem,3.4vw,2.6rem)] font-bold leading-[1.1] tracking-[-0.03em] !text-white">
-              We show each card right before it fades.
+              Review right before you forget.
             </h2>
             <p className="max-w-md text-[15px] leading-[1.65] text-slate-300">
-              Reviews spread out as memory strengthens. Minutes a day — not hours.
+              The better you know a card, the further apart its reviews get.
             </p>
-            <div className="mt-8 flex gap-8">
-              <div>
-                <p className="font-display text-3xl font-extrabold tracking-tight text-white">24 hrs</p>
-                <p className="mt-1 text-[13px] text-slate-400">When most forgetting happens</p>
-              </div>
-              <div>
-                <p className="font-display text-3xl font-extrabold tracking-tight text-white">SM-2</p>
-                <p className="mt-1 text-[13px] text-slate-400">The algorithm behind Anki</p>
-              </div>
-            </div>
           </Reveal>
           <Reveal index={1}>
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm">
@@ -1061,7 +1020,7 @@ export function LandingPage() {
       </section>
 
       {/* ── Pricing ───────────────────────────────────────────────────── */}
-      <section id="pricing" className="border-t border-slate-200/70 bg-[#F7F9FC] py-24">
+      <section id="pricing" className="border-t border-slate-200/70 py-24">
         <div className="mx-auto max-w-[900px] px-6">
           <Reveal className="mb-14 text-center">
             <Eyebrow tone="teal">Pricing</Eyebrow>
