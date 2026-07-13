@@ -46,3 +46,6 @@ supabase/.temp/
 # Build
 dist/
 build/
+
+# Build artifacts
+*.tsbuildinfo
