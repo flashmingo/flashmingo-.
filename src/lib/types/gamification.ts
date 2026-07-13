@@ -60,3 +60,25 @@ export interface GamificationData {
   };
   forecast: ReviewForecast;
 }
+
+export interface WeeklyTotals {
+  xp: number;
+  cards: number;
+  sessions: number;
+  activeDays: number;
+}
+
+export interface WeeklyRecap {
+  /** ISO week key of the just-completed week this recap covers. */
+  weekKey: string;
+  /** Human label, e.g. "Jun 30 – Jul 6". */
+  weekLabel: string;
+  recap: WeeklyTotals;
+  prior: WeeklyTotals;
+  /** Percent change in cards reviewed vs the prior week; null if prior was 0. */
+  cardsDeltaPct: number | null;
+  /** Current study streak in days. */
+  streak: number;
+  /** Whether the recapped week had any study activity (skip the card if not). */
+  hadActivity: boolean;
+}

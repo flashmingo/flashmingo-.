@@ -9,8 +9,9 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useDecks } from '@/features/decks/hooks';
-import { useGamification, useCelebrations } from '@/features/gamification/hooks';
+import { useGamification, useCelebrations, useWeeklyRecap } from '@/features/gamification/hooks';
 import { CelebrationToasts } from '@/components/gamification/CelebrationToast';
+import { WeeklyRecapCard } from '@/components/gamification/WeeklyRecapCard';
 import { gamificationIcon } from '@/components/gamification/icons';
 import { getGreeting, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -544,6 +545,7 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
 
   const { data: game } = useGamification();
   const { celebrations, clear } = useCelebrations(game);
+  const { recap, dismiss: dismissRecap } = useWeeklyRecap();
 
   const { data: allDecks, isLoading: decksLoading } = useDecks();
   const recentDecks: Deck[] = (allDecks ?? [])
@@ -623,6 +625,15 @@ export function DashboardClient({ profile }: { profile: Profile | null }) {
                     You can explore and study right away. Joining classrooms and creating decks unlocks once your administrator approves your account.
                   </p>
                 </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── Weekly recap (dismissible, once per week) ─────────────────── */}
+          <AnimatePresence>
+            {recap && (
+              <motion.div key="recap" exit={{ opacity: 0, height: 0, marginTop: 0 }}>
+                <WeeklyRecapCard recap={recap} onDismiss={dismissRecap} />
               </motion.div>
             )}
           </AnimatePresence>
