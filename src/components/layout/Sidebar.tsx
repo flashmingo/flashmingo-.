@@ -14,6 +14,7 @@ import {
   Shuffle,
   Trophy,
   ChevronRight,
+  BadgeCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRole } from '@/hooks/useRole';
@@ -42,13 +43,15 @@ const exploreNav: NavItem[] = [
 ];
 
 const teacherNav: NavItem[] = [
-  { href: '/teacher', label: 'Dashboard', icon: BarChart3 },
+  { href: '/teacher',        label: 'Dashboard',     icon: BarChart3 },
+  { href: '/decks/requests', label: 'Publish queue', icon: BadgeCheck },
 ];
 
 const adminNav: NavItem[] = [
-  { href: '/admin',            label: 'Overview',   icon: ShieldCheck },
-  { href: '/admin/users',      label: 'Users',      icon: Users },
-  { href: '/admin/audit-logs', label: 'Audit Logs', icon: BarChart3 },
+  { href: '/admin',            label: 'Overview',     icon: ShieldCheck },
+  { href: '/admin/users',      label: 'Users',        icon: Users },
+  { href: '/admin/audit-logs', label: 'Audit Logs',   icon: BarChart3 },
+  { href: '/decks/requests',   label: 'Publish queue', icon: BadgeCheck },
 ];
 
 /* ─── Individual link ─────────────────────────────── */

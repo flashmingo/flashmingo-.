@@ -261,6 +261,10 @@ export type Database = {
           name: string;
           description: string | null;
           is_public: boolean;
+          publish_status: 'private' | 'pending' | 'approved' | 'rejected';
+          publish_requested_at: string | null;
+          publish_reviewed_by: string | null;
+          publish_reviewed_at: string | null;
           card_count: number;
           search_vector: string | null;
           created_at: string;
@@ -273,6 +277,10 @@ export type Database = {
           name: string;
           description?: string | null;
           is_public?: boolean;
+          publish_status?: 'private' | 'pending' | 'approved' | 'rejected';
+          publish_requested_at?: string | null;
+          publish_reviewed_by?: string | null;
+          publish_reviewed_at?: string | null;
           card_count?: number;
           created_at?: string;
           updated_at?: string;
@@ -282,6 +290,10 @@ export type Database = {
           name?: string;
           description?: string | null;
           is_public?: boolean;
+          publish_status?: 'private' | 'pending' | 'approved' | 'rejected';
+          publish_requested_at?: string | null;
+          publish_reviewed_by?: string | null;
+          publish_reviewed_at?: string | null;
           updated_at?: string;
         };
         Relationships: [
